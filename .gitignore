@@ -1,0 +1,4 @@
+Logs/
+Reports/
+*.prefs.json
+*.windowstate.json
