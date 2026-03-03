@@ -20,7 +20,7 @@
       - PSGallery MSI module (optional, for enhanced MSI analysis)
 
     ScriptName : start-installeranalysis.ps1
-    Version    : 1.0.0
+    Version    : 1.0.1
     Updated    : 2026-03-03
 #>
 
@@ -128,7 +128,6 @@ if ($script:Prefs.DarkMode) {
     $clrDetailBg = [System.Drawing.Color]::FromArgb(45,45,45); $clrSepLine = [System.Drawing.Color]::FromArgb(55,55,55)
     $clrLogBg = [System.Drawing.Color]::FromArgb(35,35,35); $clrLogFg = [System.Drawing.Color]::FromArgb(200,200,200)
     $clrText = [System.Drawing.Color]::FromArgb(220,220,220); $clrGridText = [System.Drawing.Color]::FromArgb(220,220,220)
-    $clrOkText = [System.Drawing.Color]::FromArgb(80,200,80); $clrTreeBg = [System.Drawing.Color]::FromArgb(38,38,38)
 } else {
     $clrFormBg = [System.Drawing.Color]::FromArgb(245,246,248); $clrPanelBg = [System.Drawing.Color]::White
     $clrHint = [System.Drawing.Color]::FromArgb(140,140,140); $clrSubtitle = [System.Drawing.Color]::FromArgb(220,230,245)
@@ -136,7 +135,6 @@ if ($script:Prefs.DarkMode) {
     $clrDetailBg = [System.Drawing.Color]::FromArgb(250,250,250); $clrSepLine = [System.Drawing.Color]::FromArgb(218,220,224)
     $clrLogBg = [System.Drawing.Color]::White; $clrLogFg = [System.Drawing.Color]::Black
     $clrText = [System.Drawing.Color]::Black; $clrGridText = [System.Drawing.Color]::Black
-    $clrOkText = [System.Drawing.Color]::FromArgb(34,139,34); $clrTreeBg = [System.Drawing.Color]::White
 }
 
 if ($script:Prefs.DarkMode) {
@@ -265,7 +263,7 @@ $menuStrip.Items.Add($mnuFile) | Out-Null
 $mnuHelp = New-Object System.Windows.Forms.ToolStripMenuItem("&Help"); $mnuHelp.ForeColor = $clrText
 $mnuAbout = New-Object System.Windows.Forms.ToolStripMenuItem("&About"); $mnuAbout.ForeColor = $clrText
 $mnuAbout.Add_Click({
-    [System.Windows.Forms.MessageBox]::Show("Installer Analysis Tool v1.0.0`r`n`r`nAnalyze EXE and MSI installers for packaging intelligence.`r`nDetects: MSI, NSIS, Inno Setup, InstallShield, WiX Burn, 7z SFX, WinRAR SFX.`r`n`r`nOptional: 7-Zip (payload extraction), PSGallery MSI module.", "About", "OK", "Information") | Out-Null
+    [System.Windows.Forms.MessageBox]::Show("Installer Analysis Tool v1.0.1`r`n`r`nAnalyze EXE and MSI installers for packaging intelligence.`r`nDetects: MSI, NSIS, Inno Setup, InstallShield, WiX Burn, 7z SFX, WinRAR SFX.`r`n`r`nOptional: 7-Zip (payload extraction), PSGallery MSI module.", "About", "OK", "Information") | Out-Null
 })
 $mnuHelp.DropDownItems.Add($mnuAbout) | Out-Null; $menuStrip.Items.Add($mnuHelp) | Out-Null
 

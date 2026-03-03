@@ -52,8 +52,8 @@ function Write-Log {
     $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $formatted = "[{0}] [{1,-5}] {2}" -f $timestamp, $Level, $Message
     if (-not $Quiet) {
-        Write-Host $formatted
         if ($Level -eq 'ERROR') { $host.UI.WriteErrorLine($formatted) }
+        else { Write-Host $formatted }
     }
     if ($script:__IATLogPath) {
         Add-Content -LiteralPath $script:__IATLogPath -Value $formatted -Encoding UTF8 -ErrorAction SilentlyContinue
@@ -345,12 +345,12 @@ function Get-MsiSummaryInfo {
     try {
         $installer = New-Object -ComObject WindowsInstaller.Installer
         $db = $installer.GetType().InvokeMember("OpenDatabase", "InvokeMethod", $null, $installer, @($MsiPath, 0))
-        $summaryInfo = $db.GetType().InvokeMember("SummaryInformation", "GetProperty", $null, $db, 0)
+        $summaryInfo = $db.GetType().InvokeMember("SummaryInformation", "GetProperty", $null, $db, @(0))
 
-        $template = $summaryInfo.GetType().InvokeMember("Property", "InvokeMethod", $null, $summaryInfo, 7)
-        $revision = $summaryInfo.GetType().InvokeMember("Property", "InvokeMethod", $null, $summaryInfo, 9)
-        $subject  = $summaryInfo.GetType().InvokeMember("Property", "InvokeMethod", $null, $summaryInfo, 3)
-        $author   = $summaryInfo.GetType().InvokeMember("Property", "InvokeMethod", $null, $summaryInfo, 4)
+        $template = $summaryInfo.GetType().InvokeMember("Property", "GetProperty", $null, $summaryInfo, @(7))
+        $revision = $summaryInfo.GetType().InvokeMember("Property", "GetProperty", $null, $summaryInfo, @(9))
+        $subject  = $summaryInfo.GetType().InvokeMember("Property", "GetProperty", $null, $summaryInfo, @(3))
+        $author   = $summaryInfo.GetType().InvokeMember("Property", "GetProperty", $null, $summaryInfo, @(4))
 
         return [PSCustomObject]@{
             Template       = [string]$template

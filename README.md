@@ -4,6 +4,20 @@ A WinForms-based PowerShell GUI for analyzing EXE and MSI installer files. Point
 
 Supports drag-and-drop. No MECM connection required.
 
+## Screenshots
+
+![Overview tab - NSIS EXE analysis](screenshot-overview.png)
+*Overview tab showing file info, installer type detection, digital signature, and silent install switches for an NSIS installer.*
+
+![MSI Properties tab](screenshot-msiprops.png)
+*MSI Properties tab with full property table: ProductCode, UpgradeCode, ProductVersion, Manufacturer, and more.*
+
+![Payload tab](screenshot-payload.png)
+*Payload tab listing archive contents extracted via 7-Zip, with file sizes and an Extract All button.*
+
+![Strings tab](screenshot-strings.png)
+*Strings tab showing categorized binary strings (URLs, GUIDs) with real-time filter.*
+
 ## Requirements
 
 - Windows 10/11
@@ -92,7 +106,7 @@ Invoke-Pester .\InstallerAnalysisCommon.Tests.ps1
 
 ## License
 
-See [LICENSE](LICENSE) file.
+GPLv3. See [LICENSE](LICENSE) file.
 
 ## Author
 

@@ -2,6 +2,16 @@
 
 All notable changes to the Installer Analysis Tool are documented in this file.
 
+## [1.0.1] - 2026-03-03
+
+### Fixed
+- MSI Summary Information COM fallback: wrapped `InvokeMember` args in explicit arrays and corrected `Property` binding flags from `InvokeMethod` to `GetProperty`, fixing `DISP_E_MEMBERNOTFOUND` errors when the PSGallery MSI module is not installed
+- `Write-Log` ERROR messages no longer display twice in the console (was writing to both `Write-Host` and `WriteErrorLine`)
+
+### Added
+- LICENSE (GPLv3)
+- Screenshots in README
+
 ## [1.0.0] - 2026-03-03
 
 ### Added
