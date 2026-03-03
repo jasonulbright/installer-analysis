@@ -285,16 +285,14 @@ function Get-MsiProperties {
         $view.GetType().InvokeMember("Execute", "InvokeMethod", $null, $view, $null) | Out-Null
 
         $result = [ordered]@{}
-        do {
+        while ($true) {
             $record = $view.GetType().InvokeMember("Fetch", "InvokeMethod", $null, $view, $null)
-            if ($null -ne $record) {
-                $propName = $record.GetType().InvokeMember("StringData", "GetProperty", $null, $record, 1)
-                $propValue = $record.GetType().InvokeMember("StringData", "GetProperty", $null, $record, 2)
-                $result[$propName] = $propValue
-                [System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($record) | Out-Null
-                $record = $null
-            }
-        } while ($null -ne $record)
+            if ($null -eq $record) { break }
+            $propName = $record.GetType().InvokeMember("StringData", "GetProperty", $null, $record, 1)
+            $propValue = $record.GetType().InvokeMember("StringData", "GetProperty", $null, $record, 2)
+            $result[$propName] = $propValue
+            [System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($record) | Out-Null
+        }
 
         Write-Log "Read $($result.Count) MSI properties via COM"
         return $result
@@ -452,13 +450,13 @@ function Get-SilentSwitches {
     $db = Get-SilentSwitchDatabase
     $fileName = Split-Path -Leaf $FilePath
 
-    if (-not $db.ContainsKey($InstallerType)) { $InstallerType = 'Unknown' }
+    if (-not $db.Contains($InstallerType)) { $InstallerType = 'Unknown' }
     $entry = $db[$InstallerType]
 
     $install   = $entry.Install -replace '<EXE>', $fileName -replace '<MSI>', $fileName
     $uninstall = $entry.Uninstall -replace '<EXE>', $fileName -replace '<UninstallEXE>', 'uninstall.exe'
 
-    if ($MsiProperties -and $MsiProperties.ContainsKey('ProductCode')) {
+    if ($MsiProperties -and $MsiProperties.Contains('ProductCode')) {
         $install   = $install -replace '<ProductCode>', $MsiProperties['ProductCode']
         $uninstall = $uninstall -replace '<ProductCode>', $MsiProperties['ProductCode']
     }
@@ -795,10 +793,10 @@ function New-AnalysisSummaryText {
     if ($MsiProperties -and $MsiProperties.Count -gt 0) {
         $lines += ""
         $lines += "MSI Properties:"
-        if ($MsiProperties.ContainsKey('ProductCode'))  { $lines += "  Product Code:  $($MsiProperties['ProductCode'])" }
-        if ($MsiProperties.ContainsKey('UpgradeCode'))  { $lines += "  Upgrade Code:  $($MsiProperties['UpgradeCode'])" }
-        if ($MsiProperties.ContainsKey('ProductVersion')) { $lines += "  Version:       $($MsiProperties['ProductVersion'])" }
-        if ($MsiProperties.ContainsKey('Manufacturer'))  { $lines += "  Manufacturer:  $($MsiProperties['Manufacturer'])" }
+        if ($MsiProperties.Contains('ProductCode'))  { $lines += "  Product Code:  $($MsiProperties['ProductCode'])" }
+        if ($MsiProperties.Contains('UpgradeCode'))  { $lines += "  Upgrade Code:  $($MsiProperties['UpgradeCode'])" }
+        if ($MsiProperties.Contains('ProductVersion')) { $lines += "  Version:       $($MsiProperties['ProductVersion'])" }
+        if ($MsiProperties.Contains('Manufacturer'))  { $lines += "  Manufacturer:  $($MsiProperties['Manufacturer'])" }
     }
 
     return ($lines -join "`r`n")

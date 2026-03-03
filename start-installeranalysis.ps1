@@ -604,11 +604,11 @@ function Invoke-Analysis {
             $overviewLines += ""
             $overviewLines += "MSI PROPERTIES (KEY)"
             $overviewLines += ("=" * 50)
-            if ($msiProps.ContainsKey('ProductCode'))   { $overviewLines += "Product Code:    $($msiProps['ProductCode'])" }
-            if ($msiProps.ContainsKey('UpgradeCode'))   { $overviewLines += "Upgrade Code:    $($msiProps['UpgradeCode'])" }
-            if ($msiProps.ContainsKey('ProductVersion')) { $overviewLines += "MSI Version:     $($msiProps['ProductVersion'])" }
-            if ($msiProps.ContainsKey('Manufacturer'))  { $overviewLines += "Manufacturer:    $($msiProps['Manufacturer'])" }
-            if ($msiProps.ContainsKey('ProductName'))   { $overviewLines += "Product Name:    $($msiProps['ProductName'])" }
+            if ($msiProps.Contains('ProductCode'))   { $overviewLines += "Product Code:    $($msiProps['ProductCode'])" }
+            if ($msiProps.Contains('UpgradeCode'))   { $overviewLines += "Upgrade Code:    $($msiProps['UpgradeCode'])" }
+            if ($msiProps.Contains('ProductVersion')) { $overviewLines += "MSI Version:     $($msiProps['ProductVersion'])" }
+            if ($msiProps.Contains('Manufacturer'))  { $overviewLines += "Manufacturer:    $($msiProps['Manufacturer'])" }
+            if ($msiProps.Contains('ProductName'))   { $overviewLines += "Product Name:    $($msiProps['ProductName'])" }
         }
 
         $overviewLines += ""
@@ -731,7 +731,7 @@ $btnExportHtml.Add_Click({
     [void]$dtExport.Rows.Add("Silent Install", $sw.Install); [void]$dtExport.Rows.Add("Silent Uninstall", $sw.Uninstall)
     if ($script:AnalysisResult.MsiProperties) {
         foreach ($k in @('ProductCode','UpgradeCode','ProductVersion','Manufacturer')) {
-            if ($script:AnalysisResult.MsiProperties.ContainsKey($k)) { [void]$dtExport.Rows.Add($k, $script:AnalysisResult.MsiProperties[$k]) }
+            if ($script:AnalysisResult.MsiProperties.Contains($k)) { [void]$dtExport.Rows.Add($k, $script:AnalysisResult.MsiProperties[$k]) }
         }
     }
     $sfd = New-Object System.Windows.Forms.SaveFileDialog; $sfd.Filter = "HTML (*.html)|*.html"
