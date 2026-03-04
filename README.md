@@ -106,7 +106,7 @@ Invoke-Pester .\InstallerAnalysisCommon.Tests.ps1
 
 ## License
 
-GPLv3. See [LICENSE](LICENSE) file.
+This project is licensed under the [MIT License](LICENSE).
 
 ## Author
 
