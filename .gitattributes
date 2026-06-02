@@ -1,6 +1,0 @@
-# Normalize line endings so the repo doesn't produce whole-file CRLF/LF diffs.
-* text=auto
-
-# Binaries — never normalize or diff as text.
-*.dll binary
-*.png binary
