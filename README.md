@@ -1,5 +1,10 @@
 # Installer Analysis
 
+[![Latest release](https://img.shields.io/github/v/release/jasonulbright/installer-analysis?label=release)](https://github.com/jasonulbright/installer-analysis/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/jasonulbright/installer-analysis/total?label=downloads)](https://github.com/jasonulbright/installer-analysis/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078D4)](#requirements)
+[![License](https://img.shields.io/github/license/jasonulbright/installer-analysis)](LICENSE)
+
 Inspect a Windows installer and pull out the deployment data needed to
 package it for MECM, Intune, or Chocolatey — in one pass, with no admin
 rights, no network, and no MECM connection.
