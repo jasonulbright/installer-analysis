@@ -17,7 +17,7 @@
 
 .NOTES
     ScriptName : start-installeranalysis.ps1
-    Version    : 1.0.0.0
+    Version    : 1.1.0.0
     Updated    : 2026-05-20
 #>
 
@@ -109,31 +109,19 @@ function Get-IatPreferences {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification='Returns the full preferences hashtable by design; singular would imply a single-key lookup.')]
     param()
 
-    $defaults = @{
+    return Read-SuiteSettings -Path $global:PrefsPath -Defaults @{
         DarkMode       = $true
         SevenZipPath   = ''
         LastBrowseDir  = ''
         ReportsFolder  = ''
     }
-    if (Test-Path -LiteralPath $global:PrefsPath) {
-        try {
-            $loaded = Get-Content -LiteralPath $global:PrefsPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
-            foreach ($k in @($defaults.Keys)) {
-                $val = $loaded.$k
-                if ($null -ne $val) { $defaults[$k] = $val }
-            }
-        } catch { $null = $_ }
-    }
-    return $defaults
 }
 
 function Save-IatPreferences {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification='Writes the full preferences hashtable by design.')]
     param([Parameter(Mandatory)][hashtable]$Prefs)
 
-    try {
-        $Prefs | ConvertTo-Json | Set-Content -LiteralPath $global:PrefsPath -Encoding UTF8
-    } catch { $null = $_ }
+    $null = Save-SuiteSettings -Path $global:PrefsPath -Settings $Prefs
 }
 
 $global:Prefs = Get-IatPreferences
@@ -1482,7 +1470,7 @@ function New-AboutPanel {
     [void]$grid.ColumnDefinitions.Add($c2)
 
     $rows = @(
-        @{ K = 'Version';    V = 'v1.0.0.0' },
+        @{ K = 'Version';    V = 'v1.1.0.0' },
         @{ K = 'Author';     V = 'Jason Ulbright' },
         @{ K = 'License';    V = 'MIT' },
         @{ K = 'Formats';    V = '17 detected types -- MSI, NSIS, Inno Setup, InstallShield, WiX Burn, Advanced Installer, 7zSFX, WinRAR SFX, Chocolatey, NuGet, Intunewin, MSIX, MSIX Bundle, PSADT v3, PSADT v4, Squirrel, Unknown' },
@@ -2348,7 +2336,7 @@ if (-not [string]::IsNullOrWhiteSpace($StartupFile) -and (Test-Path -LiteralPath
 # =============================================================================
 # Ship it.
 # =============================================================================
-Add-LogLine ('Installer Analysis v1.0.0.0 -- WPF shell loaded.')
+Add-LogLine ('Installer Analysis v1.1.0.0 -- WPF shell loaded.')
 Set-StatusText 'Ready.'
 
 [void]$window.ShowDialog()

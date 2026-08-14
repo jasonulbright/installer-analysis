@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0.0] - 2026-08-14
+
+### Changed
+
+- **Shared plumbing moved to the vendored `SuiteCommon` module.** Logging
+  (`Initialize-Logging`, `Write-Log`) and preference persistence now load
+  from `Lib\SuiteCommon\`, shared across the tool suite and synced from
+  the suite-core repository instead of hand-edited per repo.
+- **ERROR log lines now reach stdout and stderr.** The previous local
+  `Write-Log` sent ERROR lines to stderr only; the suite-wide contract
+  writes every level to stdout and mirrors ERROR to stderr. File log
+  format is unchanged. `Initialize-Logging` additionally gains `-Attach`.
+
 ## [1.0.0.0] - 2026-05-20
 
 Initial public release.

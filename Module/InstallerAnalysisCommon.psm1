@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Provides functions for analyzing installer files (EXE, MSI):
-      - Structured logging
+      - Structured logging via the vendored SuiteCommon module (Lib\SuiteCommon)
       - File identification (version info, PE architecture, digital signature)
       - Installer type detection (MSI, NSIS, Inno Setup, InstallShield, WiX Burn, etc.)
       - MSI property extraction (via PSGallery MSI module or COM fallback)
@@ -20,46 +20,22 @@
 #>
 
 # ---------------------------------------------------------------------------
+# Shared core (vendored SuiteCommon)
+# ---------------------------------------------------------------------------
+# Logging (Initialize-Logging, Write-Log) and settings persistence come from
+# the vendored copy at Lib\SuiteCommon\. -Global makes the functions
+# resolvable from the shell script and from this module alike; the guard
+# keeps a -Force reimport of this module from resetting SuiteCommon state
+# mid-session.
+if (-not (Get-Module SuiteCommon)) {
+    Import-Module (Join-Path $PSScriptRoot '..\Lib\SuiteCommon\SuiteCommon.psd1') -Global -DisableNameChecking
+}
+
+# ---------------------------------------------------------------------------
 # Module-scoped state
 # ---------------------------------------------------------------------------
 
-$script:__IATLogPath       = $null
 $script:MsiModuleAvailable = $null
-
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
-
-function Initialize-Logging {
-    param([string]$LogPath)
-    $script:__IATLogPath = $LogPath
-    if ($LogPath) {
-        $parentDir = Split-Path -Path $LogPath -Parent
-        if ($parentDir -and -not (Test-Path -LiteralPath $parentDir)) {
-            New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
-        }
-        $header = "[{0}] [INFO ] === Log initialized ===" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
-        Set-Content -LiteralPath $LogPath -Value $header -Encoding UTF8
-    }
-}
-
-function Write-Log {
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '', Justification='Write-Log is the single console-surfacing path; Write-Host is the deliberate contract so INFO/WARN/ERROR reach both the host and the file log. Suppressing PSSA noise; error-level lines use WriteErrorLine.')]
-    param(
-        [AllowEmptyString()][Parameter(Mandatory, Position = 0)][string]$Message,
-        [ValidateSet('INFO', 'WARN', 'ERROR')][string]$Level = 'INFO',
-        [switch]$Quiet
-    )
-    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    $formatted = "[{0}] [{1,-5}] {2}" -f $timestamp, $Level, $Message
-    if (-not $Quiet) {
-        if ($Level -eq 'ERROR') { $host.UI.WriteErrorLine($formatted) }
-        else { Write-Host $formatted }
-    }
-    if ($script:__IATLogPath) {
-        Add-Content -LiteralPath $script:__IATLogPath -Value $formatted -Encoding UTF8 -ErrorAction SilentlyContinue
-    }
-}
 
 # ---------------------------------------------------------------------------
 # File Identification
