@@ -1189,7 +1189,7 @@ function New-AboutPanel {
     [void]$grid.ColumnDefinitions.Add($c2)
 
     $rows = @(
-        @{ K = 'Version';    V = 'v1.2.0.0' },
+        @{ K = 'Version';    V = 'v1.2.0.1.0' },
         @{ K = 'Author';     V = 'Jason Ulbright' },
         @{ K = 'License';    V = 'MIT' },
         @{ K = 'Formats';    V = '17 detected types -- MSI, NSIS, Inno Setup, InstallShield, WiX Burn, Advanced Installer, 7zSFX, WinRAR SFX, Chocolatey, NuGet, Intunewin, MSIX, MSIX Bundle, PSADT v3, PSADT v4, Squirrel, Unknown' },
@@ -2001,7 +2001,7 @@ if (-not [string]::IsNullOrWhiteSpace($StartupFile) -and (Test-Path -LiteralPath
 # =============================================================================
 # Ship it.
 # =============================================================================
-Add-LogLine ('Installer Analysis v1.2.0.0 -- WPF shell loaded.')
+Add-LogLine ('Installer Analysis v1.2.0.1.0 -- WPF shell loaded.')
 Set-StatusText 'Ready.'
 
 [void]$window.ShowDialog()
