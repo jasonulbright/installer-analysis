@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0.0] - 2026-08-16
+
+### Changed
+
+- **Window chrome, theming, and the message dialog now come from the
+  vendored `SuiteCommon` module** (0.3.0), with this tool's border-based
+  active-button visual preserved as the shared layer's Border mode.
+  Behavior gains: hook state no longer leaks on window close, a
+  maximized close persists the pre-maximize geometry, an off-screen
+  saved position clamps into the nearest monitor, and Escape closes
+  OK-only dialogs.
+
 ## [1.1.0.0] - 2026-08-14
 
 ### Changed
