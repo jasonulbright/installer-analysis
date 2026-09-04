@@ -2842,7 +2842,11 @@ Describe 'Get-NsisMetadata' {
                 [string]$InstallDirPrefix = 'LOCALAPPDATA',
                 [string]$ArpRoot = 'HKCU',
                 [bool]$SetRegView64 = $false,
-                [bool]$SetShellVarContextAll = $false
+                [bool]$SetShellVarContextAll = $false,
+                # Indirect: no compile-time InstallDir; $INSTDIR and the uninstaller
+                # are built through user variables the way electron-builder and
+                # MultiUser scripts do.
+                [bool]$Indirect = $false
             )
             $shell = @{ LOCALAPPDATA = 0x231C; APPDATA = 0x231A; PROGRAMFILES = 0x2081; PROGRAMFILES64 = 0x31C1 }
             $charSize = if ($Unicode) { 2 } else { 1 }
@@ -2887,6 +2891,11 @@ Describe 'Get-NsisMetadata' {
             $sVendor     = & $addString (& $lit 'Test Co')
             $sUninstStr  = & $addString (& $lit 'UninstallString')
             $sUninstVal  = & $addString ((& $lit '"') + (& $varRef 21) + (& $lit '\Uninstall.exe"'))
+            $sBase       = & $addString ((& $shellRef $InstallDirPrefix) + (& $lit '\Programs'))
+            $sFromVar0   = & $addString ((& $varRef 0) + (& $lit '\TestApp'))
+            $sUninstVar  = & $addString ((& $varRef 21) + (& $lit '\Uninstall Test App.exe'))
+            $sVar2       = & $addString (& $varRef 2)
+            $sVar2Quoted = & $addString ((& $lit '"') + (& $varRef 2) + (& $lit '" /currentuser'))
             $sOne        = & $addString (& $lit '1')
             $sVal256     = & $addString (& $lit '256')
             $sBranding   = & $addString (& $lit 'Test Branding')
@@ -2899,11 +2908,19 @@ Describe 'Get-NsisMetadata' {
             $entries = New-Object System.Collections.Generic.List[int[]]
             if ($SetShellVarContextAll) { $entries.Add(@(13, 1, $sOne, 0, 0, 0, 0)) }
             if ($SetRegView64) { $entries.Add(@(13, 12, $sVal256, 0, 0, 0, 0)) }
-            $entries.Add(@(62, $sUninst, 18, 784, 0, 0, 0))
+            if ($Indirect) {
+                $entries.Add(@(25, 0, $sBase, 0, 0, 0, 0))          # StrCpy $0 "<folder>\Programs"
+                $entries.Add(@(25, 21, $sFromVar0, 0, 0, 0, 0))     # StrCpy $INSTDIR "$0\TestApp"
+                $entries.Add(@(25, 2, $sUninstVar, 0, 0, 0, 0))     # StrCpy $2 "$INSTDIR\Uninstall Test App.exe"
+                $entries.Add(@(62, $sVar2, 18, 784, 0, 0, 0))       # WriteUninstaller "$2"
+            }
+            else {
+                $entries.Add(@(62, $sUninst, 18, 784, 0, 0, 0))
+            }
             $entries.Add(@(51, [int]$root, $sSubkey, $sDisplayName, $sAppName, 1, 1))
             $entries.Add(@(51, [int]$root, $sSubkey, $sDisplayVer, $sVersion, 1, 1))
             $entries.Add(@(51, [int]$root, $sSubkey, $sPublisher, $sVendor, 1, 1))
-            $entries.Add(@(51, [int]$root, $sSubkey, $sUninstStr, $sUninstVal, 1, 1))
+            $entries.Add(@(51, [int]$root, $sSubkey, $sUninstStr, $(if ($Indirect) { $sVar2Quoted } else { $sUninstVal }), 1, 1))
             $entries.Add(@(1, 0, 0, 0, 0, 0, 0))
 
             $entriesOffset = 300
@@ -2923,7 +2940,7 @@ Describe 'Get-NsisMetadata' {
             for ($b = 0; $b -lt 8; $b++) { & $put (4 + $b * 8) $blocks[$b][0]; & $put (8 + $b * 8) $blocks[$b][1] }
             & $put 68 0; & $put 72 0; & $put 76 0
             & $put 100 $langTable.Count
-            & $put 280 $sInstallDir
+            & $put 280 $(if ($Indirect) { 0 } else { $sInstallDir })
             & $put 284 0
             & $put 288 -1; & $put 292 -1; & $put 296 0
             for ($e = 0; $e -lt $entries.Count; $e++) {
@@ -3043,6 +3060,15 @@ Describe 'Get-NsisMetadata' {
         $m.Compression | Should -Be 'zlib'
         $m.Solid | Should -BeTrue
         $m.InstallDir | Should -Be '$LOCALAPPDATA\TestApp'
+    }
+
+    It 'resolves $INSTDIR and the uninstaller through user variables (electron-builder pattern)' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'u-indirect.exe') -Indirect $true
+        $m = Get-NsisMetadata -Path $f
+        $m.InstallDir | Should -Be '$LOCALAPPDATA\Programs\TestApp'
+        $m.UninstallerPath | Should -Be '$INSTDIR\Uninstall Test App.exe'
+        $m.SilentUninstallCommand | Should -Be '"%LOCALAPPDATA%\Programs\TestApp\Uninstall Test App.exe" /S'
+        $m.Note | Should -Match 'assigned at run time'
     }
 
     It 'reports a missing firstheader without throwing' {
