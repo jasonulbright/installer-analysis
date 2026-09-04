@@ -3249,3 +3249,447 @@ Describe 'NSIS metadata through the deployment pipeline' {
         $m.HeaderAvailable | Should -BeFalse
     }
 }
+
+Describe 'Get-PeResourceData' {
+    It 'reads the RT_MANIFEST resource of notepad.exe' {
+        $bytes = & (Get-Module InstallerAnalysisCommon) { param($p) Get-PeResourceData -Path $p -Type 24 } (Join-Path $env:SystemRoot 'System32\notepad.exe')
+        $bytes | Should -Not -BeNullOrEmpty
+        [System.Text.Encoding]::UTF8.GetString($bytes) | Should -Match 'requestedExecutionLevel'
+    }
+
+    It 'returns null for a resource type the file does not carry' {
+        $bytes = & (Get-Module InstallerAnalysisCommon) { param($p) Get-PeResourceData -Path $p -Type 10 -Name 11111 } (Join-Path $env:SystemRoot 'System32\notepad.exe')
+        $bytes | Should -BeNullOrEmpty
+    }
+
+    It 'returns null for a non-PE file' {
+        $f = Join-Path $TestDrive 'plain.bin'
+        [System.IO.File]::WriteAllBytes($f, (New-Object byte[] 4096))
+        $bytes = & (Get-Module InstallerAnalysisCommon) { param($p) Get-PeResourceData -Path $p -Type 24 } $f
+        $bytes | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Get-InnoSetupMetadata' {
+    BeforeAll {
+        & (Get-Module InstallerAnalysisCommon) { Initialize-InnoBlockType }
+
+        # Builds a structurally valid Inno Setup installer: an MZ stub that
+        # carries the SetupLdr offset table, then the setup-0 block at the
+        # offset the table names: the 64-byte data version signature, the
+        # encryption header (6.5.0 and later), the CRC-prefixed block header
+        # and the TSetupHeader record stored uncompressed in CRC-prefixed
+        # chunks. The record follows Shared.Struct.pas for the version given.
+        function script:New-InnoTestInstaller {
+            param(
+                [Parameter(Mandatory)][string]$Path,
+                [string]$DataVersion = '6.7.0',
+                [string]$AppId = 'Test App',
+                [string]$AppName = 'Test App',
+                [string]$AppVerName = '',
+                [string]$AppVersion = '1.2.3',
+                [string]$Publisher = 'Test Co',
+                [string]$DefaultDirName = '{autopf}\Test App',
+                [string]$UninstallFilesDir = '',
+                [string]$UninstallDisplayName = '',
+                [int]$Privileges = 2,
+                [int]$Overrides = 0,
+                # 6.3.0 and later store an expression; older versions a flag byte.
+                [string]$Arch64Expression = 'x64compatible',
+                [int]$Arch64Flags = 4,
+                [int]$EncryptionUse = 0,
+                [switch]$CorruptBlockCrc
+            )
+
+            $m = [regex]::Match($DataVersion, '^(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?(?<u>\s*\(u\))?$')
+            $v = [int64]$m.Groups[1].Value * 1000000000 + [int64]$m.Groups[2].Value * 1000000 + [int64]$m.Groups[3].Value * 1000 + $(if ($m.Groups[4].Success) { [int]$m.Groups[4].Value } else { 0 })
+            $unicode = ($v -ge 6003000000) -or $m.Groups['u'].Success
+            $enc = if ($unicode) { [System.Text.Encoding]::Unicode } else { [System.Text.Encoding]::Default }
+            $VER = { param($a, $b, $c, $d = 0) [int64]$a * 1000000000 + [int64]$b * 1000000 + [int64]$c * 1000 + $d }
+
+            $rec = New-Object System.Collections.Generic.List[byte]
+            $addBytes = { param($bytes) foreach ($b in $bytes) { $rec.Add([byte]$b) } }
+            $add32 = { param([int64]$n) & $addBytes ([BitConverter]::GetBytes([int32]$n)) }
+            $addStr = { param([string]$s, [switch]$Ansi) $bytes = if ($Ansi) { [System.Text.Encoding]::Default.GetBytes($s) } else { $enc.GetBytes($s) }; & $add32 $bytes.Length; & $addBytes $bytes }
+            $zeros = { param($n) & $addBytes (New-Object byte[] $n) }
+
+            & $addStr $AppName
+            & $addStr $AppVerName
+            & $addStr $AppId
+            & $addStr 'Copyright'
+            & $addStr $Publisher
+            & $addStr 'https://example.com/'
+            if ($v -ge (& $VER 5 1 13)) { & $addStr '' }
+            & $addStr 'https://example.com/support'
+            & $addStr 'https://example.com/updates'
+            & $addStr $AppVersion
+            & $addStr $DefaultDirName
+            & $addStr 'Test App'
+            & $addStr 'setup'
+            & $addStr $UninstallFilesDir
+            & $addStr $UninstallDisplayName
+            & $addStr ''
+            & $addStr ''
+            & $addStr ''
+            & $addStr ''
+            & $addStr ''
+            & $addStr ''; & $addStr ''; & $addStr ''; & $addStr ''
+            if ($v -ge (& $VER 5 3 8))  { & $addStr 'yes' }
+            if ($v -ge (& $VER 5 3 10)) { & $addStr 'yes' }
+            if ($v -ge (& $VER 5 5 0))  { & $addStr '' }
+            if ($v -ge (& $VER 5 5 6))  { & $addStr '' }
+            if ($v -ge (& $VER 5 6 1))  { & $addStr 'no'; & $addStr 'no' }
+            if ($v -ge (& $VER 6 3 0))  { & $addStr 'x64compatible'; & $addStr $Arch64Expression }
+            if ($v -ge (& $VER 6 4 2))  { & $addStr '' }
+            if ($v -ge (& $VER 6 5 0))  { & $addStr '' }
+            if ($v -ge (& $VER 6 7 0))  { & $addStr 'yes'; & $addStr 'yes'; & $addStr 'yes'; & $addStr 'yes'; & $addStr 'yes' }
+            & $addStr 'LICENSE TEXT' -Ansi
+            & $addStr '' -Ansi
+            & $addStr '' -Ansi
+            & $addStr 'COMPILED' -Ansi
+
+            if (-not $unicode) { & $zeros 32 }
+            $countCount = if ($v -ge (& $VER 6 5 0)) { 17 } else { 16 }
+            & $add32 1
+            for ($i = 1; $i -lt $countCount; $i++) { & $add32 0 }
+            if ($v -ge (& $VER 7 0 0)) { & $add32 0 }
+            & $addBytes @(0, 0, 0, 0, 0, 0, 1, 6, 0, 0)
+            & $zeros 10
+            if ($v -lt (& $VER 6 4 0 1)) { & $zeros 8 }
+            if ($v -lt (& $VER 5 5 7)) { & $zeros 4 }
+            if ($v -ge (& $VER 6 0 0) -and $v -lt (& $VER 6 6 0)) { & $addBytes @(1) }
+            if ($v -ge (& $VER 6 0 0)) { & $zeros 8 }
+            if ($v -ge (& $VER 6 6 0)) { & $addBytes @(2) }
+            if ($v -ge (& $VER 5 5 7)) { & $addBytes @(1) }
+            if ($v -ge (& $VER 6 5 2) -and $v -lt (& $VER 6 6 0)) { & $zeros 8 }
+            if ($v -ge (& $VER 6 6 0) -and $v -lt (& $VER 6 7 0)) { & $zeros 16 }
+            if ($v -ge (& $VER 6 6 1) -and $v -lt (& $VER 6 7 0)) { & $zeros 1 }
+            if ($v -ge (& $VER 6 7 0)) { & $zeros 26; & $addBytes @(0) }
+            if ($v -ge (& $VER 6 5 0)) { }
+            elseif ($v -ge (& $VER 6 4 0)) { & $zeros 48 }
+            elseif ($v -ge (& $VER 5 3 9)) { & $zeros 28 }
+            else { & $zeros 24 }
+            & $zeros 8
+            & $add32 1
+            & $addBytes @(1, 0, $Privileges)
+            if ($v -ge (& $VER 5 7 0)) { & $addBytes @($Overrides) }
+            & $addBytes @(2, 0, 3)
+            if ($v -ge (& $VER 5 1 0) -and $v -lt (& $VER 6 3 0)) { & $addBytes @(6, $Arch64Flags) }
+            if ($v -ge (& $VER 5 2 1) -and $v -lt (& $VER 5 3 10)) { & $zeros 8 }
+            if ($v -ge (& $VER 5 3 3)) { & $addBytes @(0, 0) }
+            & $zeros 8
+            & $zeros 8
+            $record = $rec.ToArray()
+
+            $crc = { param($bytes, $off, $len) [InstallerAnalysis.InnoBlock]::Crc32($bytes, $off, $len) }
+            $out = New-Object System.Collections.Generic.List[byte]
+            $put = { param($bytes) foreach ($b in $bytes) { $out.Add([byte]$b) } }
+
+            # Stub: MZ signature, loader table at 64, padding to 1024.
+            $stub = New-Object byte[] 1024
+            $stub[0] = 0x4D; $stub[1] = 0x5A
+            $headerOffset = 1024
+            $table = New-Object System.Collections.Generic.List[byte]
+            foreach ($b in @(0x72,0x44,0x6C,0x50,0x74,0x53,0xCD,0xE6,0xD7,0x7B,0x0B,0x2A)) { $table.Add([byte]$b) }
+            if ($v -ge (& $VER 6 5 0)) {
+                $table.AddRange([byte[]][BitConverter]::GetBytes([uint32]2))
+                $table.AddRange([byte[]][BitConverter]::GetBytes([int64]0))
+                $table.AddRange([byte[]][BitConverter]::GetBytes([int64]0))
+                $table.AddRange([byte[]][BitConverter]::GetBytes([uint32]0))
+                $table.AddRange([byte[]][BitConverter]::GetBytes([int32]0))
+                $table.AddRange([byte[]][BitConverter]::GetBytes([int64]$headerOffset))
+                $table.AddRange([byte[]][BitConverter]::GetBytes([int64]0))
+                $table.AddRange([byte[]][BitConverter]::GetBytes([uint32]0))
+                $tb = $table.ToArray()
+                $table.AddRange([byte[]][BitConverter]::GetBytes([uint32](& $crc $tb 0 60)))
+            }
+            else {
+                $table.AddRange([byte[]][BitConverter]::GetBytes([uint32]1))
+                foreach ($val in @(0, 0, 0, 0, $headerOffset, 0)) { $table.AddRange([byte[]][BitConverter]::GetBytes([uint32]$val)) }
+                $tb = $table.ToArray()
+                $table.AddRange([byte[]][BitConverter]::GetBytes([uint32](& $crc $tb 0 40)))
+            }
+            $tableBytes = $table.ToArray()
+            [Array]::Copy($tableBytes, 0, $stub, 64, $tableBytes.Length)
+            & $put $stub
+
+            $id = New-Object byte[] 64
+            $label = 'Inno Setup Setup Data (' + ($DataVersion -replace '\s*\(u\)$', '') + ')' + $(if ($m.Groups['u'].Success) { ' (u)' } else { '' })
+            $idBytes = [System.Text.Encoding]::ASCII.GetBytes($label)
+            [Array]::Copy($idBytes, 0, $id, 0, $idBytes.Length)
+            & $put $id
+
+            if ($v -ge (& $VER 6 5 0)) {
+                $encHeader = New-Object byte[] 49
+                $encHeader[0] = [byte]$EncryptionUse
+                & $put ([BitConverter]::GetBytes([uint32](& $crc $encHeader 0 49)))
+                & $put $encHeader
+            }
+
+            $chunks = New-Object System.Collections.Generic.List[byte]
+            $pos = 0
+            while ($pos -lt $record.Length) {
+                $len = [Math]::Min(4096, $record.Length - $pos)
+                $chunks.AddRange([byte[]][BitConverter]::GetBytes([uint32](& $crc $record $pos $len)))
+                for ($i = 0; $i -lt $len; $i++) { $chunks.Add($record[$pos + $i]) }
+                $pos += $len
+            }
+            $stored = $chunks.ToArray()
+            $bh = New-Object System.Collections.Generic.List[byte]
+            if ($v -ge (& $VER 6 7 0)) { $bh.AddRange([byte[]][BitConverter]::GetBytes([int64]$stored.Length)) }
+            else { $bh.AddRange([byte[]][BitConverter]::GetBytes([uint32]$stored.Length)) }
+            $bh.Add([byte]0)
+            $bhBytes = $bh.ToArray()
+            $bhCrc = & $crc $bhBytes 0 $bhBytes.Length
+            if ($CorruptBlockCrc) { $bhCrc = $bhCrc -bxor 0xFFFFFFFF }
+            & $put ([BitConverter]::GetBytes([uint32]$bhCrc))
+            & $put $bhBytes
+            & $put $stored
+            [System.IO.File]::WriteAllBytes($Path, $out.ToArray())
+            return $Path
+        }
+    }
+
+    It 'decodes a 6.7.0 per-machine x64 setup: key, folder, uninstaller, context' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'admin-670.exe')
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.HeaderAvailable | Should -BeTrue
+        $m.DataVersion | Should -Be '6.7.0 (Unicode)'
+        $m.AppId | Should -Be 'Test App'
+        $m.DisplayName | Should -Be 'Test App'
+        $m.DisplayVersion | Should -Be '1.2.3'
+        $m.Publisher | Should -Be 'Test Co'
+        $m.PrivilegesRequired | Should -Be 'admin'
+        $m.Is64BitInstallMode | Should -BeTrue
+        $m.InstallContext | Should -Be 'PerMachine'
+        $m.RegistryHive | Should -Be 'HKLM'
+        $m.RegistryView | Should -Be '64'
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Test App_is1'
+        $m.InstallDirWindows | Should -Be '%ProgramFiles%\Test App'
+        $m.UninstallerPathWindows | Should -Be '%ProgramFiles%\Test App\unins000.exe'
+        $m.SilentUninstallCommand | Should -Be '"%ProgramFiles%\Test App\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART'
+        $m.ArpValues['DisplayName'] | Should -Be 'Test App version 1.2.3'
+        $m.MinWindowsVersion | Should -Be '6.1.0'
+    }
+
+    It 'maps PrivilegesRequired=lowest to HKCU and the user Programs folder, noting the override switches' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'lowest-670.exe') -Privileges 3 -Overrides 3 -AppId '{{771FD6B0-FA20-440A-A002-3B3BAC16DC50}' -DefaultDirName '{autopf}\Code'
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.PrivilegesRequired | Should -Be 'lowest'
+        @($m.PrivilegesRequiredOverridesAllowed) | Should -Be @('commandline', 'dialog')
+        $m.InstallContext | Should -Be 'PerUser'
+        $m.RegistryHive | Should -Be 'HKCU'
+        $m.UninstallRegistryKey | Should -Be 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{771FD6B0-FA20-440A-A002-3B3BAC16DC50}_is1'
+        $m.InstallDirWindows | Should -Be '%LOCALAPPDATA%\Programs\Code'
+        $m.UninstallRegistryKeyNote | Should -Match '/ALLUSERS'
+    }
+
+    It 'routes a 6.4.0.1 setup without 64-bit mode to WOW6432Node and the 32-bit Program Files' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'x86-6401.exe') -DataVersion '6.4.0.1' -Arch64Expression '' -AppId 'winscp3' -DefaultDirName '{autopf}\WinSCP'
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.HeaderAvailable | Should -BeTrue
+        $m.DataVersion | Should -Be '6.4.0.1 (Unicode)'
+        $m.Is64BitInstallMode | Should -BeFalse
+        $m.RegistryView | Should -Be '32'
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\winscp3_is1'
+        $m.InstallDirWindows | Should -Be '%ProgramFiles(x86)%\WinSCP'
+        $m.UninstallRegistryKeyNote | Should -Match 'WOW6432Node'
+    }
+
+    It 'reads the 6.5.0 layout behind the encryption header and reports poweruser as per-machine' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'pu-650.exe') -DataVersion '6.5.0' -Privileges 1
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.HeaderAvailable | Should -BeTrue
+        $m.PrivilegesRequired | Should -Be 'poweruser'
+        $m.InstallContext | Should -Be 'PerMachine'
+        $m.RegistryHive | Should -Be 'HKLM'
+    }
+
+    It 'stops at an encrypted 6.5.0 header with a note' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'enc-650.exe') -DataVersion '6.5.0' -EncryptionUse 2
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.HeaderAvailable | Should -BeFalse
+        $m.DataVersion | Should -Be '6.5.0 (Unicode)'
+        $m.Note | Should -Match 'encrypted'
+    }
+
+    It 'decodes the 6.6.1 layout' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'admin-661.exe') -DataVersion '6.6.1' -AppId 'Ultravnc2'
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.HeaderAvailable | Should -BeTrue
+        $m.PrivilegesRequired | Should -Be 'admin'
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Ultravnc2_is1'
+    }
+
+    It 'decodes the 7.0.0.3 layout with its compiled-code version field' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'admin-7003.exe') -DataVersion '7.0.0.3'
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.HeaderAvailable | Should -BeTrue
+        $m.DataVersion | Should -Be '7.0.0.3 (Unicode)'
+        $m.PrivilegesRequired | Should -Be 'admin'
+        $m.RegistryView | Should -Be '64'
+    }
+
+    It 'reads a 5.5.7 Unicode setup with the architecture flag byte and an escaped GUID AppId' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'u-557.exe') -DataVersion '5.5.7 (u)' -AppId '{{37771A20-7167-44C0-B322-FD3E54C56156}' -Arch64Flags 4
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.HeaderAvailable | Should -BeTrue
+        $m.DataVersion | Should -Be '5.5.7 (Unicode)'
+        $m.ArchitecturesInstallIn64BitMode | Should -Be 'x64'
+        $m.Is64BitInstallMode | Should -BeTrue
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{37771A20-7167-44C0-B322-FD3E54C56156}_is1'
+        $m.PrivilegesRequired | Should -Be 'admin'
+    }
+
+    It 'reads a 5.5.7 ANSI setup past the lead-byte table' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'a-557.exe') -DataVersion '5.5.7' -Arch64Flags 0 -AppId 'AnsiApp'
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.HeaderAvailable | Should -BeTrue
+        $m.DataVersion | Should -Be '5.5.7 (ANSI)'
+        $m.Is64BitInstallMode | Should -BeFalse
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\AnsiApp_is1'
+        $m.PrivilegesRequired | Should -Be 'admin'
+    }
+
+    It 'keeps a run-time DefaultDirName unresolved and still names the key' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'code-610.exe') -DataVersion '6.1.0 (u)' -DefaultDirName '{code:UserPF}\R\R-4.6.0' -AppId 'R for Windows 4.6.0' -Privileges 0 -Overrides 1
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.HeaderAvailable | Should -BeTrue
+        $m.PrivilegesRequired | Should -Be 'none'
+        $m.InstallDirWindows | Should -Be '{code:UserPF}\R\R-4.6.0'
+        $m.UninstallerPathWindows | Should -Be ''
+        $m.SilentUninstallCommand | Should -Be ''
+        $m.Note | Should -Match 'not resolvable'
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\R for Windows 4.6.0_is1'
+    }
+
+    It 'prefers UninstallDisplayName, then AppVerName, for the ARP DisplayName' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'names.exe') -AppVerName 'Test App 1.2.3' -UninstallDisplayName 'Test App (User)'
+        (Get-InnoSetupMetadata -Path $f).ArpDisplayName | Should -Be 'Test App (User)'
+        $f2 = New-InnoTestInstaller -Path (Join-Path $TestDrive 'names2.exe') -AppVerName 'Test App 1.2.3'
+        (Get-InnoSetupMetadata -Path $f2).ArpDisplayName | Should -Be 'Test App 1.2.3'
+    }
+
+    It 'places the uninstaller in UninstallFilesDir when the script sets one' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'ufd.exe') -UninstallFilesDir '{app}\uninst'
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.UninstallerPathWindows | Should -Be '%ProgramFiles%\Test App\uninst\unins000.exe'
+    }
+
+    It 'reports a block checksum mismatch instead of guessing' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'badcrc.exe') -CorruptBlockCrc
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.HeaderAvailable | Should -BeFalse
+        $m.Note | Should -Match 'checksum'
+    }
+
+    It 'returns an unavailable header for a file without a loader table' {
+        $f = Join-Path $TestDrive 'plain.exe'
+        $bytes = New-Object byte[] 4096
+        $bytes[0] = 0x4D; $bytes[1] = 0x5A
+        [System.IO.File]::WriteAllBytes($f, $bytes)
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.HeaderAvailable | Should -BeFalse
+        $m.Note | Should -Match 'offset table'
+    }
+}
+
+Describe 'ConvertTo-InnoWindowsPath' {
+    It 'follows the install mode for {autopf}' {
+        ConvertTo-InnoWindowsPath -Path '{autopf}\A' | Should -Be '%ProgramFiles%\A'
+        ConvertTo-InnoWindowsPath -Path '{autopf}\A' -Is64BitMode $false | Should -Be '%ProgramFiles(x86)%\A'
+        ConvertTo-InnoWindowsPath -Path '{autopf}\A' -PerUser $true | Should -Be '%LOCALAPPDATA%\Programs\A'
+    }
+
+    It 'maps the explicit 32-bit and 64-bit constants regardless of mode' {
+        ConvertTo-InnoWindowsPath -Path '{commonpf32}\A' | Should -Be '%ProgramFiles(x86)%\A'
+        ConvertTo-InnoWindowsPath -Path '{commonpf64}\A' -Is64BitMode $false | Should -Be '%ProgramFiles%\A'
+        ConvertTo-InnoWindowsPath -Path '{localappdata}\A' | Should -Be '%LOCALAPPDATA%\A'
+        ConvertTo-InnoWindowsPath -Path '{commonappdata}\A' | Should -Be '%ProgramData%\A'
+    }
+
+    It 'expands {app}, environment constants and the brace escape' {
+        ConvertTo-InnoWindowsPath -Path '{app}\unins000.exe' -AppDir '%ProgramFiles%\A' | Should -Be '%ProgramFiles%\A\unins000.exe'
+        ConvertTo-InnoWindowsPath -Path '{%HOMEDRIVE|C:}\A' | Should -Be '%HOMEDRIVE%\A'
+        ConvertTo-InnoWindowsPath -Path '{sd}\{{literal}' | Should -Be '%SystemDrive%\{literal}'
+    }
+
+    It 'leaves run-time constants in place' {
+        ConvertTo-InnoWindowsPath -Path '{code:GetDir}\A' | Should -Be '{code:GetDir}\A'
+        ConvertTo-InnoWindowsPath -Path '{reg:HKLM\Software\X,Path|{pf}}\A' | Should -Match '^\{reg:'
+    }
+}
+
+Describe 'Inno Setup metadata through the deployment pipeline' {
+    BeforeAll {
+        $script:innoMeta = [PSCustomObject]@{
+            Format = 'InnoSetup'; HeaderAvailable = $true
+            DataVersion = '6.7.0 (Unicode)'; Compression = 'lzma1'
+            AppId = 'Apache NetBeans'; AppName = 'Apache NetBeans'; AppVersion = '31'
+            DisplayName = 'Apache NetBeans'; DisplayVersion = '31'; Publisher = 'Apache NetBeans'
+            ArpDisplayName = 'Apache NetBeans version 31'
+            DefaultDirName = '{autopf}\Apache NetBeans'; InstallDirWindows = '%ProgramFiles%\Apache NetBeans'
+            UninstallerPath = '{app}\unins000.exe'; UninstallerPathWindows = '%ProgramFiles%\Apache NetBeans\unins000.exe'
+            SilentUninstallCommand = '"%ProgramFiles%\Apache NetBeans\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART'
+            UninstallRegistryKey = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Apache NetBeans_is1'
+            UninstallRegistryKeyNote = ''
+            RegistryHive = 'HKLM'; RegistryView = '64'; InstallContext = 'PerMachine'
+            PrivilegesRequired = 'admin'; PrivilegesRequiredOverridesAllowed = @()
+            ArchitecturesInstallIn64BitMode = 'x64compatible'; Is64BitInstallMode = $true
+            CreateUninstallRegKey = 'yes'; Uninstallable = 'yes'; MinWindowsVersion = '6.1.0'; Note = ''
+        }
+        $script:innoFileInfo = [PSCustomObject]@{
+            FileName = 'Apache-NetBeans-31.exe'; ProductName = 'Apache NetBeans'; ProductVersion = '31'; CompanyName = 'Apache NetBeans'
+            FileDescription = 'Apache NetBeans Setup'; FileVersion = ''; Architecture = 'x86'; RequestedExecutionLevel = 'asInvoker'
+            SignatureStatus = 'NotSigned'; SignerSubject = ''
+        }
+    }
+
+    It 'Get-SilentSwitches substitutes the resolved unins000.exe path' {
+        $sw = Get-SilentSwitches -InstallerType 'InnoSetup' -FilePath 'C:\x\Apache-NetBeans-31.exe' -PackageMetadata $script:innoMeta
+        $sw.Uninstall | Should -Be '"%ProgramFiles%\Apache NetBeans\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART'
+        $sw.Install | Should -Be '"Apache-NetBeans-31.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-'
+    }
+
+    It 'Get-UninstallRegistryKey prefers the decoded AppId key and view' {
+        $r = Get-UninstallRegistryKey -InstallerType 'InnoSetup' -PackageMetadata $script:innoMeta -DeploymentFields ([PSCustomObject]@{ DisplayName = 'Other' })
+        $r.Path | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Apache NetBeans_is1'
+        $r.Hive | Should -Be 'HKLM'
+        $r.Note | Should -Match 'AppId'
+    }
+
+    It 'Get-UninstallRegistryKey falls back to the DisplayName convention without a decoded header' {
+        $noHeader = [PSCustomObject]@{ Format = 'InnoSetup'; HeaderAvailable = $false; UninstallRegistryKey = ''; UninstallRegistryKeyNote = '' }
+        $r = Get-UninstallRegistryKey -InstallerType 'InnoSetup' -PackageMetadata $noHeader -DeploymentFields ([PSCustomObject]@{ DisplayName = 'Other' })
+        $r.Path | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Other_is1'
+    }
+
+    It 'Get-DeploymentFields carries AppVersion as DisplayVersion when the setup binary has no file version' {
+        $sw = Get-SilentSwitches -InstallerType 'InnoSetup' -FilePath 'C:\x\Apache-NetBeans-31.exe' -PackageMetadata $script:innoMeta
+        $df = Get-DeploymentFields -FileInfo $script:innoFileInfo -Switches $sw -PackageMetadata $script:innoMeta -InstallerType 'InnoSetup'
+        $df.DisplayVersion | Should -Be '31'
+        $df.UninstallRegistryKey | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Apache NetBeans_is1'
+        $df.SilentUninstallString | Should -Match 'unins000\.exe'
+    }
+
+    It 'New-AnalysisSummaryText renders the header block and qualifies the manifest elevation' {
+        $sw = Get-SilentSwitches -InstallerType 'InnoSetup' -FilePath 'C:\x\Apache-NetBeans-31.exe' -PackageMetadata $script:innoMeta
+        $df = Get-DeploymentFields -FileInfo $script:innoFileInfo -Switches $sw -PackageMetadata $script:innoMeta -InstallerType 'InnoSetup'
+        $text = New-AnalysisSummaryText -FileInfo $script:innoFileInfo -InstallerType 'InnoSetup' -Switches $sw -DeploymentFields $df -PackageMetadata $script:innoMeta
+        $text | Should -Match 'Package Metadata \(Inno Setup compiled \[Setup\] header\)'
+        $text | Should -Match 'AppId:\s+Apache NetBeans'
+        $text | Should -Match 'Privileges:\s+admin'
+        $text | Should -Match '64-bit mode:\s+x64compatible'
+        $text | Should -Match 'PrivilegesRequired=admin'
+    }
+
+    It 'Get-PackageMetadataFor dispatches InnoSetup to Get-InnoSetupMetadata' {
+        $f = Join-Path $TestDrive 'dispatch-inno.exe'
+        $bytes = New-Object byte[] 2048
+        $bytes[0] = 0x4D; $bytes[1] = 0x5A
+        [System.IO.File]::WriteAllBytes($f, $bytes)
+        $m = Get-PackageMetadataFor -Path $f -InstallerType 'InnoSetup'
+        $m.Format | Should -Be 'InnoSetup'
+        $m.HeaderAvailable | Should -BeFalse
+    }
+}

@@ -74,6 +74,23 @@ Every analysis surfaces:
   lands under `WOW6432Node` when a 32-bit installer never calls
   `SetRegView 64`. Installers that pick the folder in `.onInit` are
   resolved from their `StrCpy $INSTDIR` assignments.
+- **Inno Setup compiled `[Setup]` header** — the setup-0 block behind
+  the SetupLdr stub is located through the loader offset table,
+  decompressed (LZMA1) and read for every data version from 5.x to
+  7.0.0.3: `AppId` (so the Add/Remove Programs key is the real
+  `<AppId>_is1`, GUID or not), `AppVersion` (the `DisplayVersion` the
+  setup writes, even when the stub carries no file version),
+  `DefaultDirName` in environment form (`{autopf}\App` ->
+  `%ProgramFiles%\App`), `UninstallFilesDir` and the `unins000.exe`
+  silent uninstall string, `PrivilegesRequired` (`lowest` puts the key
+  under HKCU and the folder under `%LOCALAPPDATA%\Programs`; `admin`,
+  `poweruser` and `none` are per-machine), the override switches when
+  `PrivilegesRequiredOverridesAllowed` is set, and
+  `ArchitecturesInstallIn64BitMode` (a setup that never enters 64-bit
+  mode registers under `WOW6432Node`). An Inno Setup 6 stub is
+  `asInvoker` and elevates itself, so the manifest is reported but the
+  install context comes from the header. Encrypted headers (6.5+
+  `EncryptionUse=full`) are reported as such and not decoded.
 - **Effective post-patch detection target** — for outer files that
   contain a base MSI plus a cumulative MSP (Adobe Reader, Office, most
   enterprise vendors), the analyzer combines the inner MSI's ProductCode

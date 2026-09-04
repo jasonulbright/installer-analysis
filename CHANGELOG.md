@@ -1,5 +1,46 @@
 # Changelog
 
+## [1.3.1.0] - 2026-09-04
+
+### Added
+
+- **Inno Setup compiled `[Setup]` header decoded (`Get-InnoSetupMetadata`).**
+  The SetupLdr offset table (RCDATA 11111, revision 1 and the 64-bit
+  revision 2 of 6.5+) locates the setup-0 block; the CRC-chunked LZMA1
+  block is decoded and the leading `TSetupHeader` record parsed by data
+  version from 5.x through 7.0.0.3, including the 6.5 encryption header
+  and the 6.7 64-bit block size. Reported: `AppId`, `AppName`,
+  `AppVersion`, `AppPublisher`, `DefaultDirName` (and its environment
+  form), `UninstallFilesDir`, `PrivilegesRequired`,
+  `PrivilegesRequiredOverridesAllowed`, `ArchitecturesInstallIn64BitMode`,
+  `MinVersion`, `CreateUninstallRegKey`, `Uninstallable`, and the ARP
+  values the setup writes. Encrypted headers are reported, not decoded.
+- **`ConvertTo-InnoWindowsPath`** rewrites `{autopf}`, `{pf}`, `{cf}`,
+  `{localappdata}`, `{userpf}`, `{commonappdata}`, `{sd}`, `{win}`,
+  `{sys}`, `{%ENV|default}` and the `{{` escape into environment form
+  for the install mode; run-time constants (`{code:...}`, `{reg:...}`)
+  stay in place so callers can tell the folder is unresolved.
+- **`Get-PeResourceData`** reads one numbered resource from a PE file;
+  `Get-PeRequestedExecutionLevel` now uses it for `RT_MANIFEST`.
+
+### Changed
+
+- **Inno Setup deployment fields come from the header.** The predicted
+  ARP key is `<AppId>_is1` (GUID or name, with the `{{` escape
+  resolved) under HKLM in the 64-bit view, under `WOW6432Node` when the
+  setup never enters 64-bit mode, or under HKCU for
+  `PrivilegesRequired=lowest`; `DisplayVersion` is `AppVersion` even
+  when the stub carries no file version; the silent uninstall string
+  names `unins000.exe` in `UninstallFilesDir` (`"%ProgramFiles%\App\unins000.exe"
+  /VERYSILENT /SUPPRESSMSGBOXES /NORESTART`); `InstallContext` follows
+  `PrivilegesRequired`. The `DisplayName_is1` convention remains the
+  fallback when the header is not decoded.
+- **Summary text** carries a "Package Metadata (Inno Setup compiled
+  [Setup] header)" block and qualifies the manifest `Elevation` line:
+  an Inno Setup 6 stub is `asInvoker` and elevates itself for
+  `PrivilegesRequired=admin`, so the manifest does not indicate a
+  per-user install.
+
 ## [1.3.0.2] - 2026-09-04
 
 ### Changed
