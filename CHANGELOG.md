@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.0.2] - 2026-09-04
+
+### Changed
+
+- **Vendored `SuiteCommon` 0.4.3.** The shared module repairs the process
+  PSModulePath at import, which supersedes the runspace-local repair 1.3.0.0
+  carried in the analysis runspace init; a Windows PowerShell process
+  launched from PowerShell 7 no longer hands any runspace or child process
+  the 7.x module directories. A background runspace whose module import
+  fails is disposed and the original error thrown.
+
 ## [1.3.0.1] - 2026-09-04
 
 ### Fixed
