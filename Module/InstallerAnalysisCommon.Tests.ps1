@@ -2846,7 +2846,11 @@ Describe 'Get-NsisMetadata' {
                 # Indirect: no compile-time InstallDir; $INSTDIR and the uninstaller
                 # are built through user variables the way electron-builder and
                 # MultiUser scripts do.
-                [bool]$Indirect = $false
+                [bool]$Indirect = $false,
+                # MultiMode: the electron-builder shape on top of Indirect: a Program
+                # Files branch beside the per-user one, SHCTX registration, and the
+                # /allusers and /currentuser option strings in the table.
+                [bool]$MultiMode = $false
             )
             $shell = @{ LOCALAPPDATA = 0x231C; APPDATA = 0x231A; PROGRAMFILES = 0x2081; PROGRAMFILES64 = 0x31C1 }
             $charSize = if ($Unicode) { 2 } else { 1 }
@@ -2901,16 +2905,22 @@ Describe 'Get-NsisMetadata' {
             $sBranding   = & $addString (& $lit 'Test Branding')
             $sCaption    = & $addString (& $lit 'Test App 1.2.3')
             $sName       = & $addString (& $lit 'Test App')
+            $sMachineDir = & $addString ((& $shellRef 'PROGRAMFILES64') + (& $lit '\TestApp'))
+            if ($MultiMode) {
+                $null = & $addString (& $lit '/allusers')
+                $null = & $addString (& $lit '/currentuser')
+            }
             $strings = $table.ToArray()
 
-            # HKEY handles stored as the int32 bit pattern makensis writes.
-            $root = if ($ArpRoot -eq 'HKLM') { -2147483646 } else { -2147483647 }
+            # HKEY handles stored as the int32 bit pattern makensis writes; SHCTX is 0.
+            $root = if ($ArpRoot -eq 'HKLM') { -2147483646 } elseif ($ArpRoot -eq 'SHCTX') { 0 } else { -2147483647 }
             $entries = New-Object System.Collections.Generic.List[int[]]
             if ($SetShellVarContextAll) { $entries.Add(@(13, 1, $sOne, 0, 0, 0, 0)) }
             if ($SetRegView64) { $entries.Add(@(13, 12, $sVal256, 0, 0, 0, 0)) }
             if ($Indirect) {
                 $entries.Add(@(25, 0, $sBase, 0, 0, 0, 0))          # StrCpy $0 "<folder>\Programs"
                 $entries.Add(@(25, 21, $sFromVar0, 0, 0, 0, 0))     # StrCpy $INSTDIR "$0\TestApp"
+                if ($MultiMode) { $entries.Add(@(25, 21, $sMachineDir, 0, 0, 0, 0)) }   # StrCpy $INSTDIR "$PROGRAMFILES64\TestApp" (the /allusers branch)
                 $entries.Add(@(25, 2, $sUninstVar, 0, 0, 0, 0))     # StrCpy $2 "$INSTDIR\Uninstall Test App.exe"
                 $entries.Add(@(62, $sVar2, 18, 784, 0, 0, 0))       # WriteUninstaller "$2"
             }
@@ -3069,6 +3079,43 @@ Describe 'Get-NsisMetadata' {
         $m.UninstallerPath | Should -Be '$INSTDIR\Uninstall Test App.exe'
         $m.SilentUninstallCommand | Should -Be '"%LOCALAPPDATA%\Programs\TestApp\Uninstall Test App.exe" /S'
         $m.Note | Should -Match 'assigned at run time'
+        $m.InstallModes | Should -Be @('CurrentUser')
+        $m.InstallMode | Should -Be 'CurrentUser'
+    }
+
+    It 'offers the all-users branch of a switchable installer as a second install mode' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'u-multimode.exe') -Indirect $true -MultiMode $true -ArpRoot 'SHCTX' -SetRegView64 $true
+        $m = Get-NsisMetadata -Path $f
+        $m.InstallMode | Should -Be 'CurrentUser'
+        $m.InstallModes | Should -Be @('CurrentUser', 'AllUsers')
+        $m.AllUsersSwitch | Should -Be '/allusers'
+        $m.CurrentUserSwitch | Should -Be '/currentuser'
+        # The default branch stays per-user, exactly as without the switch.
+        $m.InstallContext | Should -Be 'PerUser'
+        $m.UninstallRegistryKey | Should -Be 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+        $m.SilentUninstallCommand | Should -Be '"%LOCALAPPDATA%\Programs\TestApp\Uninstall Test App.exe" /S'
+        $cu = $m.ModeVariants['CurrentUser']
+        $cu.InstallArgs | Should -Be '/S'
+        $cu.InstallContext | Should -Be 'PerUser'
+        # The all-users branch carries the switch, the Program Files folder,
+        # the HKLM key in the 64-bit view, and the machine context together.
+        $au = $m.ModeVariants['AllUsers']
+        $au.InstallArgs | Should -Be '/S /allusers'
+        $au.InstallDir | Should -Be '$PROGRAMFILES64\TestApp'
+        $au.InstallDirWindows | Should -Be '%ProgramW6432%\TestApp'
+        $au.SilentUninstallCommand | Should -Be '"%ProgramW6432%\TestApp\Uninstall Test App.exe" /S /allusers'
+        $au.UninstallRegistryKey | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+        $au.RegistryHive | Should -Be 'HKLM'
+        $au.RegistryView | Should -Be '64'
+        $au.InstallContext | Should -Be 'PerMachine'
+    }
+
+    It 'keeps a single install mode when the script has no mode switch' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'u-single.exe') -Indirect $true -MultiMode $false
+        $m = Get-NsisMetadata -Path $f
+        $m.InstallModes | Should -Be @('CurrentUser')
+        $m.ModeVariants.Count | Should -Be 1
+        $m.AllUsersSwitch | Should -Be ''
     }
 
     It 'reports a missing firstheader without throwing' {
@@ -3482,6 +3529,41 @@ Describe 'Get-InnoSetupMetadata' {
         $m.UninstallRegistryKey | Should -Be 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{771FD6B0-FA20-440A-A002-3B3BAC16DC50}_is1'
         $m.InstallDirWindows | Should -Be '%LOCALAPPDATA%\Programs\Code'
         $m.UninstallRegistryKeyNote | Should -Match '/ALLUSERS'
+    }
+
+    It 'offers the other branch as an install mode when the command-line override is allowed' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'lowest-modes.exe') -Privileges 3 -Overrides 1 -AppId 'Tree' -DefaultDirName '{autopf}\Tree'
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.InstallMode | Should -Be 'CurrentUser'
+        $m.InstallModes | Should -Be @('CurrentUser', 'AllUsers')
+        $m.AllUsersSwitch | Should -Be '/ALLUSERS'
+        $cu = $m.ModeVariants['CurrentUser']
+        $cu.InstallArgs | Should -Be '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-'
+        $cu.UninstallRegistryKey | Should -Be 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Tree_is1'
+        $au = $m.ModeVariants['AllUsers']
+        $au.InstallArgs | Should -Be '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /ALLUSERS'
+        $au.InstallDirWindows | Should -Be '%ProgramFiles%\Tree'
+        $au.SilentUninstallCommand | Should -Be '"%ProgramFiles%\Tree\unins000.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART'
+        $au.UninstallRegistryKey | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Tree_is1'
+        $au.RegistryView | Should -Be '64'
+        $au.InstallContext | Should -Be 'PerMachine'
+
+        # admin default with the override: the per-user branch is the option.
+        $f2 = New-InnoTestInstaller -Path (Join-Path $TestDrive 'admin-modes.exe') -Privileges 2 -Overrides 3 -AppId 'winscp3' -DefaultDirName '{autopf}\WinSCP' -Arch64Expression ''
+        $m2 = Get-InnoSetupMetadata -Path $f2
+        $m2.InstallMode | Should -Be 'AllUsers'
+        $m2.InstallModes | Should -Be @('CurrentUser', 'AllUsers')
+        $m2.ModeVariants['AllUsers'].UninstallRegistryKey | Should -Be 'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\winscp3_is1'
+        $m2.ModeVariants['CurrentUser'].InstallArgs | Should -Be '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /CURRENTUSER'
+        $m2.ModeVariants['CurrentUser'].InstallDirWindows | Should -Be '%LOCALAPPDATA%\Programs\WinSCP'
+        $m2.ModeVariants['CurrentUser'].UninstallRegistryKey | Should -Be 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\winscp3_is1'
+    }
+
+    It 'keeps a single install mode without the command-line override' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'dialog-only.exe') -Privileges 2 -Overrides 2
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.InstallModes | Should -Be @('AllUsers')
+        $m.AllUsersSwitch | Should -Be ''
     }
 
     It 'routes a 6.4.0.1 setup without 64-bit mode to WOW6432Node and the 32-bit Program Files' {

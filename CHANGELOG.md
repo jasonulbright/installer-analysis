@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.3.2.0] - 2026-09-04
+
+### Added
+
+- **Install modes for switchable installers.** `Get-NsisMetadata` and
+  `Get-InnoSetupMetadata` report `InstallModes`, the default
+  `InstallMode`, the switch literals (`AllUsersSwitch`,
+  `CurrentUserSwitch`) and `ModeVariants`, one fully resolved branch per
+  mode: install arguments with the mode switch, install folder,
+  uninstaller path and silent uninstall command, ARP key with hive and
+  registry view, and install context. An NSIS script that carries the
+  `/allusers` and `/currentuser` options (electron-builder, MultiUser)
+  and a Program Files candidate beside the per-user one gets both modes;
+  an Inno Setup script gets both when
+  `PrivilegesRequiredOverridesAllowed` includes the command line
+  (`/ALLUSERS`, `/CURRENTUSER`). The top-level fields are unchanged and
+  keep describing the default branch, so a per-machine deployment built
+  from the other branch never mixes values from the per-user one.
+- **Summary text** lists the install modes and the switch that selects
+  each non-default one.
+
+### Changed
+
+- **Branch resolution is one code path.** The NSIS and Inno Setup
+  decoders resolve folder, uninstaller, key, hive, view and context
+  through a single per-branch resolver that the default and the
+  switchable branches share.
+
 ## [1.3.1.0] - 2026-09-04
 
 ### Added
