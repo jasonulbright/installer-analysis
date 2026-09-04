@@ -17,7 +17,7 @@
 
 .NOTES
     ScriptName : start-installeranalysis.ps1
-    Version    : 1.3.1.0
+    Version    : 1.3.2.0
     Updated    : 2026-05-20
 #>
 

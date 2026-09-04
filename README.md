@@ -73,7 +73,12 @@ Every analysis surfaces:
   (`"%LOCALAPPDATA%\App\Uninstall.exe" /S`), and the predicted ARP key
   lands under `WOW6432Node` when a 32-bit installer never calls
   `SetRegView 64`. Installers that pick the folder in `.onInit` are
-  resolved from their `StrCpy $INSTDIR` assignments.
+  resolved from their `StrCpy $INSTDIR` assignments. An installer whose
+  script accepts `/allusers` and `/currentuser` (electron-builder,
+  MultiUser) reports both install modes, each resolved end to end: the
+  switch, the folder, the uninstall command, the ARP key and hive, and
+  the install context, so a per-machine deployment never mixes values
+  from the per-user branch.
 - **Inno Setup compiled `[Setup]` header** — the setup-0 block behind
   the SetupLdr stub is located through the loader offset table,
   decompressed (LZMA1) and read for every data version from 5.x to
@@ -90,7 +95,10 @@ Every analysis surfaces:
   mode registers under `WOW6432Node`). An Inno Setup 6 stub is
   `asInvoker` and elevates itself, so the manifest is reported but the
   install context comes from the header. Encrypted headers (6.5+
-  `EncryptionUse=full`) are reported as such and not decoded.
+  `EncryptionUse=full`) are reported as such and not decoded. When
+  `PrivilegesRequiredOverridesAllowed` includes the command line, the
+  `/ALLUSERS` and `/CURRENTUSER` branches are both reported as install
+  modes with their own folder, key, hive and uninstall command.
 - **Effective post-patch detection target** — for outer files that
   contain a base MSI plus a cumulative MSP (Adobe Reader, Office, most
   enterprise vendors), the analyzer combines the inner MSI's ProductCode
