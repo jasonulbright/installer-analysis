@@ -62,6 +62,20 @@ preserved at `Lib\MSI\3.3.4\Licenses\`.
 
 ---
 
+## LZMA SDK (reference decoder)
+
+- File: `Module\InstallerAnalysisCommon.psm1` (the C# `NsisLzmaDecoder`
+  type compiled at module load)
+- Project: <https://7-zip.org/sdk.html>
+- Author: Igor Pavlov
+- License: public domain
+
+The LZMA1 range decoder and the BCJ x86 branch-conversion filter used to
+read NSIS header streams are a C# port of the SDK's `LzmaSpec.cpp`
+reference decoder and `Bra86.c`. No SDK binaries ship with this tool.
+
+---
+
 ## License Texts
 
 Full MIT license text applies to all components above. The canonical

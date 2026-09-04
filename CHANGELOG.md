@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.3.0.0] - 2026-09-04
+
+### Added
+
+- **`Get-NsisMetadata`** - decodes the compiled script inside an NSIS
+  installer instead of guessing from FileVersionInfo. Locates the
+  firstheader, decompresses the header block (LZMA solid and non-solid
+  via a self-contained decoder with BCJ x86 support, zlib via
+  `DeflateStream`, uncompressed; bzip2 is reported as not decoded),
+  decodes the Unicode or ANSI string table with its shell-folder,
+  variable and LangString escapes, and walks the entry list in script
+  order. Yields `InstallDir` (compile-time value, or the `StrCpy $INSTDIR`
+  assignment that matches the ARP hive when the script chooses the folder
+  in `.onInit`), the `WriteUninstaller` path, every value the script
+  writes under `...\CurrentVersion\Uninstall\`, the ARP hive and 32/64-bit
+  view as of that write (`SetRegView`), `SetShellVarContext`, the
+  installer `Name`, and an `InstallContext` of PerUser or PerMachine.
+  Paths are also rendered in Windows environment form
+  (`%LOCALAPPDATA%\App\Uninstall.exe`, `%ProgramW6432%\...`) so the silent
+  uninstall command is executable as emitted.
+- **`Get-PeRequestedExecutionLevel`** - reads `requestedExecutionLevel`
+  from a PE file's embedded manifest by walking the resource directory,
+  without loading the image. Surfaced as `RequestedExecutionLevel` on
+  `Get-InstallerFileInfo` for every `.exe` and as an `Elevation:` line in
+  the summary.
+- **`ConvertTo-NsisWindowsPath`** - rewrites NSIS folder constants to
+  environment variables, honouring the all-users shell context.
+
+### Changed
+
+- **`Get-SilentSwitches`** gains `-PackageMetadata`; for NSIS the decoded
+  uninstaller path replaces the bare `uninstall.exe` placeholder.
+- **`Get-UninstallRegistryKey`** for NSIS returns the script-defined key,
+  hive and note ahead of the DisplayName convention, including the
+  WOW6432Node placement for 32-bit installers that never call
+  `SetRegView 64`.
+- **Overview and JSON** carry an NSIS package-metadata block (stream
+  type, InstallDir, uninstaller, ARP hive and view, shell context, install
+  context, run-time InstallDir candidates) and a detection hint keyed on
+  the decoded ARP path. Dictionary-valued metadata renders one row per
+  entry in the Overview grid.
+- **All shipped PowerShell files are pure ASCII.**
+
 ## [1.2.0.1] - 2026-08-16
 
 ### Changed

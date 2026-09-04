@@ -1964,9 +1964,8 @@ Describe 'Find-SquirrelNupkgRefs regex safety' {
 # ============================================================================
 
 Describe 'Get-PackageMetadataFor' {
-    It 'returns $null for types with no framework-specific extractor (MSI, NSIS, Unknown)' {
+    It 'returns $null for types with no framework-specific extractor (MSI, Unknown)' {
         Get-PackageMetadataFor -Path (Join-Path $TestDrive 'x') -InstallerType 'MSI'      | Should -BeNullOrEmpty
-        Get-PackageMetadataFor -Path (Join-Path $TestDrive 'x') -InstallerType 'NSIS'     | Should -BeNullOrEmpty
         Get-PackageMetadataFor -Path (Join-Path $TestDrive 'x') -InstallerType 'Unknown'  | Should -BeNullOrEmpty
     }
 
@@ -2821,5 +2820,406 @@ Describe 'Expand-PayloadEntry handles entry names with spaces(spaces-in-name)' -
         if (-not $script:sevenZip) { Set-ItResult -Skipped; return }
         $r = Expand-PayloadEntry -SevenZipPath $script:sevenZip -ArchivePath 'C:\nope\missing.7z' -EntryName 'x.msp' -OutputDir (Join-Path $TestDrive 'noarch-out')
         $r | Should -BeNullOrEmpty
+    }
+}
+
+# ============================================================================
+# NSIS header analysis
+# ============================================================================
+
+Describe 'Get-NsisMetadata' {
+    BeforeAll {
+        # Builds a structurally valid NSIS installer: an MZ stub padded to a
+        # 512-byte boundary, the firstheader, and the header block (block
+        # table, entries, strings, one langtable) stored uncompressed, as a
+        # non-solid deflate block, or as a solid deflate stream. Shell folder
+        # and variable references use the same escape encoding makensis emits.
+        function script:New-NsisTestInstaller {
+            param(
+                [Parameter(Mandatory)][string]$Path,
+                [ValidateSet('none', 'deflate', 'deflate-solid')][string]$Compression = 'none',
+                [bool]$Unicode = $true,
+                [string]$InstallDirPrefix = 'LOCALAPPDATA',
+                [string]$ArpRoot = 'HKCU',
+                [bool]$SetRegView64 = $false,
+                [bool]$SetShellVarContextAll = $false
+            )
+            $shell = @{ LOCALAPPDATA = 0x231C; APPDATA = 0x231A; PROGRAMFILES = 0x2081; PROGRAMFILES64 = 0x31C1 }
+            $charSize = if ($Unicode) { 2 } else { 1 }
+            $table = New-Object System.Collections.Generic.List[byte]
+            $addUnit = {
+                param($u)
+                if ($Unicode) { $table.Add([byte]($u -band 0xFF)); $table.Add([byte](($u -shr 8) -band 0xFF)) }
+                else { $table.Add([byte]$u) }
+            }
+            $addString = {
+                param([object[]]$units)   # ints: literal chars, or @('code', arg) pairs flattened as negative markers
+                $ptr = [int]($table.Count / $charSize)
+                foreach ($u in $units) { & $addUnit $u }
+                & $addUnit 0
+                return $ptr
+            }
+            $lit = { param([string]$s) ,@($s.ToCharArray() | ForEach-Object { [int]$_ }) }
+            $shellRef = {
+                param([string]$name)
+                $v = $shell[$name]
+                if ($Unicode) { ,@(2, $v) } else { ,@(2, ($v -band 0xFF), (($v -shr 8) -band 0xFF)) }
+            }
+            $varRef = {
+                param([int]$index)   # 21 = $INSTDIR
+                $lo = 0x80 -bor ($index -band 0x7F); $hi = 0x80 -bor (($index -shr 7) -band 0x7F)
+                if ($Unicode) { ,@(3, ($lo -bor ($hi -shl 8))) } else { ,@(3, $lo, $hi) }
+            }
+            & $addUnit 0   # string 0 is the empty string
+            # makensis reserves the next slots for the registry-resolved
+            # Program Files lookup: value names at ptr 1 and 17, default at 32.
+            $null = & $addString (& $lit 'ProgramFilesDir')
+            $null = & $addString (& $lit 'CommonFilesDir')
+            $null = & $addString (& $lit 'C:\Program Files')
+            $sInstallDir = & $addString ((& $shellRef $InstallDirPrefix) + (& $lit '\TestApp'))
+            $sUninst     = & $addString ((& $varRef 21) + (& $lit '\Uninstall.exe'))
+            $sSubkey     = & $addString (& $lit 'Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp')
+            $sDisplayName = & $addString (& $lit 'DisplayName')
+            $sAppName    = & $addString (& $lit 'Test App')
+            $sDisplayVer = & $addString (& $lit 'DisplayVersion')
+            $sVersion    = & $addString (& $lit '1.2.3')
+            $sPublisher  = & $addString (& $lit 'Publisher')
+            $sVendor     = & $addString (& $lit 'Test Co')
+            $sUninstStr  = & $addString (& $lit 'UninstallString')
+            $sUninstVal  = & $addString ((& $lit '"') + (& $varRef 21) + (& $lit '\Uninstall.exe"'))
+            $sOne        = & $addString (& $lit '1')
+            $sVal256     = & $addString (& $lit '256')
+            $sBranding   = & $addString (& $lit 'Test Branding')
+            $sCaption    = & $addString (& $lit 'Test App 1.2.3')
+            $sName       = & $addString (& $lit 'Test App')
+            $strings = $table.ToArray()
+
+            # HKEY handles stored as the int32 bit pattern makensis writes.
+            $root = if ($ArpRoot -eq 'HKLM') { -2147483646 } else { -2147483647 }
+            $entries = New-Object System.Collections.Generic.List[int[]]
+            if ($SetShellVarContextAll) { $entries.Add(@(13, 1, $sOne, 0, 0, 0, 0)) }
+            if ($SetRegView64) { $entries.Add(@(13, 12, $sVal256, 0, 0, 0, 0)) }
+            $entries.Add(@(62, $sUninst, 18, 784, 0, 0, 0))
+            $entries.Add(@(51, [int]$root, $sSubkey, $sDisplayName, $sAppName, 1, 1))
+            $entries.Add(@(51, [int]$root, $sSubkey, $sDisplayVer, $sVersion, 1, 1))
+            $entries.Add(@(51, [int]$root, $sSubkey, $sPublisher, $sVendor, 1, 1))
+            $entries.Add(@(51, [int]$root, $sSubkey, $sUninstStr, $sUninstVal, 1, 1))
+            $entries.Add(@(1, 0, 0, 0, 0, 0, 0))
+
+            $entriesOffset = 300
+            $stringsOffset = $entriesOffset + ($entries.Count * 28)
+            $langOffset = $stringsOffset + $strings.Length
+            $langTable = New-Object System.Collections.Generic.List[byte]
+            $langTable.AddRange([byte[]](0x09, 0x04))                      # LANGID 1033
+            $langTable.AddRange([BitConverter]::GetBytes([int]0))          # dlg_offset
+            $langTable.AddRange([BitConverter]::GetBytes([int]0))          # rtl
+            foreach ($ptr in @($sBranding, $sCaption, $sName)) { $langTable.AddRange([BitConverter]::GetBytes([int]$ptr)) }
+            $headerLength = $langOffset + $langTable.Count
+
+            $header = New-Object byte[] $headerLength
+            $put = { param($offset, $value) [Array]::Copy([BitConverter]::GetBytes([int]$value), 0, $header, $offset, 4) }
+            & $put 0 0
+            $blocks = @(@(0, 0), @(0, 0), @($entriesOffset, $entries.Count), @($stringsOffset, 0), @($langOffset, 1), @($headerLength, 0), @(0, 0), @(0, 0))
+            for ($b = 0; $b -lt 8; $b++) { & $put (4 + $b * 8) $blocks[$b][0]; & $put (8 + $b * 8) $blocks[$b][1] }
+            & $put 68 0; & $put 72 0; & $put 76 0
+            & $put 100 $langTable.Count
+            & $put 280 $sInstallDir
+            & $put 284 0
+            & $put 288 -1; & $put 292 -1; & $put 296 0
+            for ($e = 0; $e -lt $entries.Count; $e++) {
+                for ($k = 0; $k -lt 7; $k++) { & $put ($entriesOffset + $e * 28 + $k * 4) $entries[$e][$k] }
+            }
+            [Array]::Copy($strings, 0, $header, $stringsOffset, $strings.Length)
+            [Array]::Copy($langTable.ToArray(), 0, $header, $langOffset, $langTable.Count)
+
+            $deflate = {
+                param([byte[]]$data)
+                $ms = New-Object System.IO.MemoryStream
+                $ds = New-Object System.IO.Compression.DeflateStream ($ms, [System.IO.Compression.CompressionMode]::Compress, $true)
+                $ds.Write($data, 0, $data.Length); $ds.Dispose()
+                return ,[byte[]]$ms.ToArray()
+            }
+            $data = New-Object System.Collections.Generic.List[byte]
+            switch ($Compression) {
+                'none' {
+                    $data.AddRange([BitConverter]::GetBytes([uint32]$headerLength))
+                    $data.AddRange([byte[]]$header)
+                }
+                'deflate' {
+                    [byte[]]$packed = & $deflate $header
+                    $data.AddRange([BitConverter]::GetBytes([uint32]([uint32]$packed.Length + [uint32]2147483648)))
+                    $data.AddRange($packed)
+                }
+                'deflate-solid' {
+                    $stream = New-Object System.Collections.Generic.List[byte]
+                    $stream.AddRange([BitConverter]::GetBytes([uint32]$headerLength))
+                    $stream.AddRange([byte[]]$header)
+                    $stream.AddRange([BitConverter]::GetBytes([uint32]4))
+                    $stream.AddRange([byte[]](1, 2, 3, 4))
+                    [byte[]]$packedStream = & $deflate $stream.ToArray()
+                    $data.AddRange($packedStream)
+                }
+            }
+
+            $file = New-Object System.Collections.Generic.List[byte]
+            $stub = New-Object byte[] 1024
+            $stub[0] = 0x4D; $stub[1] = 0x5A
+            $file.AddRange($stub)
+            $file.AddRange([BitConverter]::GetBytes([uint32]0))                        # flags
+            $file.AddRange([byte[]](0xEF, 0xBE, 0xAD, 0xDE))
+            $file.AddRange([System.Text.Encoding]::ASCII.GetBytes('NullsoftInst'))
+            $file.AddRange([BitConverter]::GetBytes([uint32]$headerLength))
+            $file.AddRange([BitConverter]::GetBytes([uint32](28 + $data.Count)))
+            $file.AddRange($data)
+            [System.IO.File]::WriteAllBytes($Path, $file.ToArray())
+            return $Path
+        }
+
+        $script:makensis = 'C:\Program Files (x86)\NSIS\makensis.exe'
+        $script:haveMakensis = Test-Path -LiteralPath $script:makensis
+        Initialize-Logging -LogPath (Join-Path $TestDrive 'nsis-meta.log')
+    }
+
+    It 'decodes an uncompressed Unicode header: InstallDir, uninstaller, ARP key and values' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'u-none.exe')
+        $m = Get-NsisMetadata -Path $f
+        $m.HeaderAvailable | Should -BeTrue
+        $m.Compression | Should -Be 'none'
+        $m.Unicode | Should -BeTrue
+        $m.InstallDir | Should -Be '$LOCALAPPDATA\TestApp'
+        $m.InstallDirWindows | Should -Be '%LOCALAPPDATA%\TestApp'
+        $m.UninstallerPath | Should -Be '$INSTDIR\Uninstall.exe'
+        $m.SilentUninstallCommand | Should -Be '"%LOCALAPPDATA%\TestApp\Uninstall.exe" /S'
+        $m.UninstallRegistryKey | Should -Be 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+        $m.RegistryHive | Should -Be 'HKCU'
+        $m.DisplayName | Should -Be 'Test App'
+        $m.DisplayVersion | Should -Be '1.2.3'
+        $m.Publisher | Should -Be 'Test Co'
+        $m.Name | Should -Be 'Test App'
+        $m.InstallContext | Should -Be 'PerUser'
+        $m.ArpValues['UninstallString'] | Should -Be '"$INSTDIR\Uninstall.exe"'
+    }
+
+    It 'decodes an ANSI header with two-byte escape arguments' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'a-none.exe') -Unicode $false -InstallDirPrefix 'PROGRAMFILES64' -ArpRoot 'HKLM' -SetRegView64 $true
+        $m = Get-NsisMetadata -Path $f
+        $m.HeaderAvailable | Should -BeTrue
+        $m.Unicode | Should -BeFalse
+        $m.InstallDir | Should -Be '$PROGRAMFILES64\TestApp'
+        $m.InstallDirWindows | Should -Be '%ProgramW6432%\TestApp'
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+        $m.RegistryView | Should -Be '64'
+        $m.InstallContext | Should -Be 'PerMachine'
+    }
+
+    It 'routes an HKLM key through WOW6432Node when the script never calls SetRegView 64' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'u-wow.exe') -InstallDirPrefix 'PROGRAMFILES' -ArpRoot 'HKLM'
+        $m = Get-NsisMetadata -Path $f
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+        $m.RegistryView | Should -Be '32'
+        $m.InstallDirWindows | Should -Be '%ProgramFiles(x86)%\TestApp'
+    }
+
+    It 'maps $LOCALAPPDATA to ProgramData after SetShellVarContext all' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'u-all.exe') -SetShellVarContextAll $true
+        $m = Get-NsisMetadata -Path $f
+        $m.ShellVarContext | Should -Be 'all'
+        $m.InstallDirWindows | Should -Be '%ProgramData%\TestApp'
+    }
+
+    It 'decodes a non-solid deflate header block' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'u-deflate.exe') -Compression 'deflate'
+        $m = Get-NsisMetadata -Path $f
+        $m.HeaderAvailable | Should -BeTrue
+        $m.Compression | Should -Be 'zlib'
+        $m.Solid | Should -BeFalse
+        $m.SilentUninstallCommand | Should -Be '"%LOCALAPPDATA%\TestApp\Uninstall.exe" /S'
+    }
+
+    It 'decodes a solid deflate stream whose header carries a length prefix' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'u-deflate-solid.exe') -Compression 'deflate-solid'
+        $m = Get-NsisMetadata -Path $f
+        $m.HeaderAvailable | Should -BeTrue
+        $m.Compression | Should -Be 'zlib'
+        $m.Solid | Should -BeTrue
+        $m.InstallDir | Should -Be '$LOCALAPPDATA\TestApp'
+    }
+
+    It 'reports a missing firstheader without throwing' {
+        $f = Join-Path $TestDrive 'not-nsis.exe'
+        $bytes = New-Object byte[] 2048
+        $bytes[0] = 0x4D; $bytes[1] = 0x5A
+        [System.IO.File]::WriteAllBytes($f, $bytes)
+        $m = Get-NsisMetadata -Path $f
+        $m.HeaderAvailable | Should -BeFalse
+        $m.Note | Should -Match 'firstheader'
+    }
+
+    It 'ignores the marker text inside the stub when it is not 512-aligned' {
+        $f = Join-Path $TestDrive 'marker-in-stub.exe'
+        $bytes = New-Object byte[] 4096
+        $bytes[0] = 0x4D; $bytes[1] = 0x5A
+        $marker = [byte[]](0xEF, 0xBE, 0xAD, 0xDE) + [System.Text.Encoding]::ASCII.GetBytes('NullsoftInst')
+        [Array]::Copy($marker, 0, $bytes, 100, $marker.Length)
+        [System.IO.File]::WriteAllBytes($f, $bytes)
+        (Get-NsisMetadata -Path $f).HeaderAvailable | Should -BeFalse
+    }
+
+    Context 'makensis-compiled installers' {
+        BeforeAll {
+            $script:nsi = Join-Path $TestDrive 'probe.nsi'
+            Set-Content -LiteralPath (Join-Path $TestDrive 'payload.txt') -Value 'payload'
+            @'
+Unicode ${UNI}
+SetCompressor ${SOLIDFLAG} ${COMP}
+RequestExecutionLevel user
+Name "Probe App"
+OutFile "${OUTFILE}"
+InstallDir "$LOCALAPPDATA\ProbeApp"
+Section "Main"
+  SetOutPath "$INSTDIR"
+  File "payload.txt"
+  WriteUninstaller "$INSTDIR\Uninstall.exe"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ProbeApp" "DisplayName" "Probe App"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ProbeApp" "DisplayVersion" "1.2.3"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ProbeApp" "UninstallString" '"$INSTDIR\Uninstall.exe"'
+SectionEnd
+Section "Uninstall"
+  Delete "$INSTDIR\payload.txt"
+SectionEnd
+'@ | Set-Content -LiteralPath $script:nsi -Encoding ASCII
+            function script:Invoke-Makensis {
+                param([string]$Uni, [string]$Comp, [string]$Solid, [string]$Out)
+                $argList = @('/V1', "/DUNI=$Uni", "/DCOMP=$Comp", "/DSOLIDFLAG=$Solid", "/DOUTFILE=$Out", $script:nsi)
+                $null = & $script:makensis @argList 2>&1
+                return ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $Out))
+            }
+        }
+
+        It 'decodes a solid LZMA Unicode build' {
+            if (-not $script:haveMakensis) { Set-ItResult -Skipped -Because 'makensis not installed'; return }
+            $out = Join-Path $TestDrive 'mk-lzma-solid.exe'
+            (Invoke-Makensis -Uni 'true' -Comp 'lzma' -Solid '/SOLID' -Out $out) | Should -BeTrue
+            $m = Get-NsisMetadata -Path $out
+            $m.Compression | Should -Be 'lzma'
+            $m.Solid | Should -BeTrue
+            $m.Unicode | Should -BeTrue
+            $m.InstallDir | Should -Be '$LOCALAPPDATA\ProbeApp'
+            $m.SilentUninstallCommand | Should -Be '"%LOCALAPPDATA%\ProbeApp\Uninstall.exe" /S'
+            $m.UninstallRegistryKey | Should -Be 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ProbeApp'
+            $m.DisplayName | Should -Be 'Probe App'
+            $m.RequestedExecutionLevel | Should -Be 'asInvoker'
+        }
+
+        It 'decodes a non-solid LZMA ANSI build' {
+            if (-not $script:haveMakensis) { Set-ItResult -Skipped -Because 'makensis not installed'; return }
+            $out = Join-Path $TestDrive 'mk-lzma-ansi.exe'
+            (Invoke-Makensis -Uni 'false' -Comp 'lzma' -Solid '' -Out $out) | Should -BeTrue
+            $m = Get-NsisMetadata -Path $out
+            $m.Compression | Should -Be 'lzma'
+            $m.Solid | Should -BeFalse
+            $m.Unicode | Should -BeFalse
+            $m.InstallDir | Should -Be '$LOCALAPPDATA\ProbeApp'
+            $m.Name | Should -Be 'Probe App'
+        }
+
+        It 'reports bzip2 streams as not decoded' {
+            if (-not $script:haveMakensis) { Set-ItResult -Skipped -Because 'makensis not installed'; return }
+            $out = Join-Path $TestDrive 'mk-bzip2.exe'
+            (Invoke-Makensis -Uni 'true' -Comp 'bzip2' -Solid '/SOLID' -Out $out) | Should -BeTrue
+            $m = Get-NsisMetadata -Path $out
+            $m.Compression | Should -Be 'bzip2'
+            $m.HeaderAvailable | Should -BeFalse
+        }
+    }
+}
+
+Describe 'Get-PeRequestedExecutionLevel' {
+    It 'reads asInvoker from notepad.exe' {
+        Get-PeRequestedExecutionLevel -Path (Join-Path $env:SystemRoot 'System32\notepad.exe') | Should -Be 'asInvoker'
+    }
+
+    It 'reads highestAvailable from regedit.exe' {
+        Get-PeRequestedExecutionLevel -Path (Join-Path $env:SystemRoot 'regedit.exe') | Should -Be 'highestAvailable'
+    }
+
+    It 'returns an empty string for a non-PE file' {
+        $f = Join-Path $TestDrive 'plain.txt'
+        Set-Content -LiteralPath $f -Value 'text'
+        Get-PeRequestedExecutionLevel -Path $f | Should -Be ''
+    }
+}
+
+Describe 'ConvertTo-NsisWindowsPath' {
+    It 'expands $INSTDIR first and then the folder constants' {
+        ConvertTo-NsisWindowsPath -Path '$INSTDIR\uninstall.exe' -InstallDir '%ProgramW6432%\App' | Should -Be '%ProgramW6432%\App\uninstall.exe'
+    }
+
+    It 'maps the 32-bit and 64-bit Program Files constants to unambiguous variables' {
+        ConvertTo-NsisWindowsPath -Path '$PROGRAMFILES\A' | Should -Be '%ProgramFiles(x86)%\A'
+        ConvertTo-NsisWindowsPath -Path '$PROGRAMFILES64\A' | Should -Be '%ProgramW6432%\A'
+        ConvertTo-NsisWindowsPath -Path '$COMMONFILES64\A' | Should -Be '%CommonProgramW6432%\A'
+    }
+
+    It 'switches user folders to their all-users equivalents' {
+        ConvertTo-NsisWindowsPath -Path '$APPDATA\A' -AllUsersContext $true | Should -Be '%ProgramData%\A'
+        ConvertTo-NsisWindowsPath -Path '$DESKTOP\A' -AllUsersContext $true | Should -Be '%PUBLIC%\Desktop\A'
+    }
+
+    It 'leaves run-time variables in place' {
+        ConvertTo-NsisWindowsPath -Path '$0\A' | Should -Be '$0\A'
+    }
+}
+
+Describe 'NSIS metadata through the deployment pipeline' {
+    BeforeAll {
+        $script:nsisMeta = [PSCustomObject]@{
+            Format = 'NSIS'; HeaderAvailable = $true
+            DisplayName = 'Test App'; DisplayVersion = '1.2.3'; Publisher = 'Test Co'
+            UninstallerPath = '$INSTDIR\Uninstall.exe'; UninstallerPathWindows = '%LOCALAPPDATA%\TestApp\Uninstall.exe'
+            SilentUninstallCommand = '"%LOCALAPPDATA%\TestApp\Uninstall.exe" /S'
+            UninstallRegistryKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+            UninstallRegistryKeyNote = 'Per-user registration under HKCU; detection and uninstall must run in the user context.'
+            RegistryHive = 'HKCU'; RegistryView = ''; InstallContext = 'PerUser'
+        }
+        $script:nsisFileInfo = [PSCustomObject]@{
+            FileName = 'setup.exe'; ProductName = 'Test App'; ProductVersion = '1.2.3'; CompanyName = 'Test Co'
+            FileDescription = ''; FileVersion = '1.2.3'; Architecture = 'x86'; RequestedExecutionLevel = 'asInvoker'
+        }
+    }
+
+    It 'Get-SilentSwitches substitutes the decoded uninstaller path for uninstall.exe' {
+        $sw = Get-SilentSwitches -InstallerType 'NSIS' -FilePath 'C:\x\setup.exe' -PackageMetadata $script:nsisMeta
+        $sw.Uninstall | Should -Be '"%LOCALAPPDATA%\TestApp\Uninstall.exe" /S'
+        $sw.Install | Should -Be '"setup.exe" /S'
+    }
+
+    It 'Get-SilentSwitches keeps the placeholder path without metadata' {
+        (Get-SilentSwitches -InstallerType 'NSIS' -FilePath 'C:\x\setup.exe').Uninstall | Should -Be '"uninstall.exe" /S'
+    }
+
+    It 'Get-UninstallRegistryKey prefers the decoded key and hive' {
+        $r = Get-UninstallRegistryKey -InstallerType 'NSIS' -PackageMetadata $script:nsisMeta -DeploymentFields ([PSCustomObject]@{ DisplayName = 'Other' })
+        $r.Path | Should -Be 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+        $r.Hive | Should -Be 'HKCU'
+        $r.Note | Should -Match 'user context'
+    }
+
+    It 'Get-DeploymentFields carries the decoded uninstall string and key' {
+        $sw = Get-SilentSwitches -InstallerType 'NSIS' -FilePath 'C:\x\setup.exe' -PackageMetadata $script:nsisMeta
+        $df = Get-DeploymentFields -FileInfo $script:nsisFileInfo -Switches $sw -PackageMetadata $script:nsisMeta -InstallerType 'NSIS'
+        $df.SilentUninstallString | Should -Be '"%LOCALAPPDATA%\TestApp\Uninstall.exe" /S'
+        $df.UninstallRegistryKey | Should -Be 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+        $df.DisplayName | Should -Be 'Test App'
+    }
+
+    It 'Get-PackageMetadataFor dispatches NSIS to Get-NsisMetadata' {
+        $f = Join-Path $TestDrive 'dispatch.exe'
+        $bytes = New-Object byte[] 2048
+        $bytes[0] = 0x4D; $bytes[1] = 0x5A
+        [System.IO.File]::WriteAllBytes($f, $bytes)
+        $m = Get-PackageMetadataFor -Path $f -InstallerType 'NSIS'
+        $m.Format | Should -Be 'NSIS'
+        $m.HeaderAvailable | Should -BeFalse
     }
 }
