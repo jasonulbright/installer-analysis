@@ -2850,7 +2850,16 @@ Describe 'Get-NsisMetadata' {
                 # MultiMode: the electron-builder shape on top of Indirect: a Program
                 # Files branch beside the per-user one, SHCTX registration, and the
                 # /allusers and /currentuser option strings in the table.
-                [bool]$MultiMode = $false
+                [bool]$MultiMode = $false,
+                # RegistryExtras: a WriteRegDWORD to HKLM64, a DeleteRegValue, a
+                # DeleteRegKey /ifempty, and a one-record sections block naming "Main".
+                [bool]$RegistryExtras = $false,
+                # KeyViaVariable: StrCpy $0 "<Uninstall subkey>" then WriteReg with key "$0" (the JetBrains pattern).
+                [bool]$KeyViaVariable = $false,
+                # VariantKeys: writes to "<subkey>$5" before the literal key, the way multi-mode scripts register a second branch.
+                [bool]$VariantKeys = $false,
+                # RegViewInInit: SetRegView 64 placed after the section code, where .onInit sits in most scripts.
+                [bool]$RegViewInInit = $false
             )
             $shell = @{ LOCALAPPDATA = 0x231C; APPDATA = 0x231A; PROGRAMFILES = 0x2081; PROGRAMFILES64 = 0x31C1 }
             $charSize = if ($Unicode) { 2 } else { 1 }
@@ -2906,14 +2915,21 @@ Describe 'Get-NsisMetadata' {
             $sCaption    = & $addString (& $lit 'Test App 1.2.3')
             $sName       = & $addString (& $lit 'Test App')
             $sMachineDir = & $addString ((& $shellRef 'PROGRAMFILES64') + (& $lit '\TestApp'))
+            $sMain       = & $addString (& $lit 'Main')
+            $sSubkey2    = & $addString (& $lit 'Software\TestCo\TestApp')
+            $sFlagName   = & $addString (& $lit 'Installed')
             if ($MultiMode) {
                 $null = & $addString (& $lit '/allusers')
                 $null = & $addString (& $lit '/currentuser')
             }
+            $sSubkeyVar = & $addString (& $varRef 0)
+            $sSubkeyVariant = & $addString ((& $lit 'Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp') + (& $varRef 5))
             $strings = $table.ToArray()
 
             # HKEY handles stored as the int32 bit pattern makensis writes; SHCTX is 0.
-            $root = if ($ArpRoot -eq 'HKLM') { -2147483646 } elseif ($ArpRoot -eq 'SHCTX') { 0 } else { -2147483647 }
+            $root = switch ($ArpRoot) { 'HKLM' { -2147483646 } 'HKLM64' { -1610612734 } 'SHCTX' { 0 } default { -2147483647 } }
+            $sSubkeyLiteral = $sSubkey
+            if ($KeyViaVariable) { $sSubkey = $sSubkeyVar }
             $entries = New-Object System.Collections.Generic.List[int[]]
             if ($SetShellVarContextAll) { $entries.Add(@(13, 1, $sOne, 0, 0, 0, 0)) }
             if ($SetRegView64) { $entries.Add(@(13, 12, $sVal256, 0, 0, 0, 0)) }
@@ -2927,13 +2943,24 @@ Describe 'Get-NsisMetadata' {
             else {
                 $entries.Add(@(62, $sUninst, 18, 784, 0, 0, 0))
             }
+            if ($KeyViaVariable) { $entries.Add(@(25, 0, $sSubkeyLiteral, 0, 0, 0, 0)) }   # StrCpy $0 "Software\...\Uninstall\TestApp"
+            if ($VariantKeys) { $entries.Add(@(51, [int]$root, $sSubkeyVariant, $sDisplayVer, $sVersion, 1, 1)) }
             $entries.Add(@(51, [int]$root, $sSubkey, $sDisplayName, $sAppName, 1, 1))
             $entries.Add(@(51, [int]$root, $sSubkey, $sDisplayVer, $sVersion, 1, 1))
             $entries.Add(@(51, [int]$root, $sSubkey, $sPublisher, $sVendor, 1, 1))
             $entries.Add(@(51, [int]$root, $sSubkey, $sUninstStr, $(if ($Indirect) { $sVar2Quoted } else { $sUninstVal }), 1, 1))
+            if ($RegistryExtras) {
+                # HKLM with the REGROOTVIEW64 bit: 0x80000002 | 0x20000000 as int32.
+                $entries.Add(@(51, -1610612734, $sSubkey2, $sFlagName, $sOne, 4, 4))
+                $entries.Add(@(50, 0, [int]$root, $sSubkey, $sDisplayName, 0, 0))
+                $entries.Add(@(50, 0, [int]$root, $sSubkey2, 0, 3, 0))
+            }
             $entries.Add(@(1, 0, 0, 0, 0, 0, 0))
+            if ($RegViewInInit) { $entries.Add(@(13, 12, $sVal256, 0, 0, 0, 0)); $entries.Add(@(1, 0, 0, 0, 0, 0, 0)) }
 
-            $entriesOffset = 300
+            $sectionsOffset = 300
+            $sectionCount = if ($RegistryExtras) { 1 } else { 0 }
+            $entriesOffset = $sectionsOffset + ($sectionCount * 32)
             $stringsOffset = $entriesOffset + ($entries.Count * 28)
             $langOffset = $stringsOffset + $strings.Length
             $langTable = New-Object System.Collections.Generic.List[byte]
@@ -2946,13 +2973,18 @@ Describe 'Get-NsisMetadata' {
             $header = New-Object byte[] $headerLength
             $put = { param($offset, $value) [Array]::Copy([BitConverter]::GetBytes([int]$value), 0, $header, $offset, 4) }
             & $put 0 0
-            $blocks = @(@(0, 0), @(0, 0), @($entriesOffset, $entries.Count), @($stringsOffset, 0), @($langOffset, 1), @($headerLength, 0), @(0, 0), @(0, 0))
+            $blocks = @(@(0, 0), @($(if ($sectionCount) { $sectionsOffset } else { 0 }), $sectionCount), @($entriesOffset, $entries.Count), @($stringsOffset, 0), @($langOffset, 1), @($headerLength, 0), @(0, 0), @(0, 0))
             for ($b = 0; $b -lt 8; $b++) { & $put (4 + $b * 8) $blocks[$b][0]; & $put (8 + $b * 8) $blocks[$b][1] }
             & $put 68 0; & $put 72 0; & $put 76 0
             & $put 100 $langTable.Count
             & $put 280 $(if ($Indirect) { 0 } else { $sInstallDir })
             & $put 284 0
             & $put 288 -1; & $put 292 -1; & $put 296 0
+            if ($sectionCount) {
+                # name_ptr, install_types, flags, code, code_size, size_kb, then an 8-byte name buffer.
+                & $put $sectionsOffset $sMain; & $put ($sectionsOffset + 4) 0; & $put ($sectionsOffset + 8) 1
+                & $put ($sectionsOffset + 12) 0; & $put ($sectionsOffset + 16) ($entries.Count - 1); & $put ($sectionsOffset + 20) 0
+            }
             for ($e = 0; $e -lt $entries.Count; $e++) {
                 for ($k = 0; $k -lt 7; $k++) { & $put ($entriesOffset + $e * 28 + $k * 4) $entries[$e][$k] }
             }
@@ -3339,12 +3371,15 @@ Describe 'Get-InnoSetupMetadata' {
                 [string]$DefaultDirName = '{autopf}\Test App',
                 [string]$UninstallFilesDir = '',
                 [string]$UninstallDisplayName = '',
+                [string]$Uninstallable = 'yes',
                 [int]$Privileges = 2,
                 [int]$Overrides = 0,
                 # 6.3.0 and later store an expression; older versions a flag byte.
                 [string]$Arch64Expression = 'x64compatible',
                 [int]$Arch64Flags = 4,
                 [int]$EncryptionUse = 0,
+                # Each entry: @{ Root = 'HKLM'|'HKCU'|'HKA'|...; Subkey; ValueName; ValueData; Typ = 0..6; Options = flag bits; Bitness = 0..4 }
+                [hashtable[]]$RegistryEntries = @(),
                 [switch]$CorruptBlockCrc
             )
 
@@ -3382,7 +3417,7 @@ Describe 'Get-InnoSetupMetadata' {
             & $addStr ''
             & $addStr ''; & $addStr ''; & $addStr ''; & $addStr ''
             if ($v -ge (& $VER 5 3 8))  { & $addStr 'yes' }
-            if ($v -ge (& $VER 5 3 10)) { & $addStr 'yes' }
+            if ($v -ge (& $VER 5 3 10)) { & $addStr $Uninstallable }
             if ($v -ge (& $VER 5 5 0))  { & $addStr '' }
             if ($v -ge (& $VER 5 5 6))  { & $addStr '' }
             if ($v -ge (& $VER 5 6 1))  { & $addStr 'no'; & $addStr 'no' }
@@ -3397,8 +3432,9 @@ Describe 'Get-InnoSetupMetadata' {
 
             if (-not $unicode) { & $zeros 32 }
             $countCount = if ($v -ge (& $VER 6 5 0)) { 17 } else { 16 }
+            $registryIndex = if ($v -ge (& $VER 6 5 0)) { 12 } else { 11 }
             & $add32 1
-            for ($i = 1; $i -lt $countCount; $i++) { & $add32 0 }
+            for ($i = 1; $i -lt $countCount; $i++) { & $add32 $(if ($i -eq $registryIndex) { @($RegistryEntries).Count } else { 0 }) }
             if ($v -ge (& $VER 7 0 0)) { & $add32 0 }
             & $addBytes @(0, 0, 0, 0, 0, 0, 1, 6, 0, 0)
             & $zeros 10
@@ -3425,7 +3461,26 @@ Describe 'Get-InnoSetupMetadata' {
             if ($v -ge (& $VER 5 2 1) -and $v -lt (& $VER 5 3 10)) { & $zeros 8 }
             if ($v -ge (& $VER 5 3 3)) { & $addBytes @(0, 0) }
             & $zeros 8
-            & $zeros 8
+            # Options set: 6 bytes for 6.0 to 6.2, 7 for 6.3, 6 from 6.4.0.1, 8 from 6.7.0.
+            & $zeros $(if ($v -ge (& $VER 6 7 0)) { 8 } elseif ($v -ge (& $VER 6 4 0 1)) { 6 } elseif ($v -ge (& $VER 6 3 0)) { 7 } else { 6 })
+            if ($v -ge (& $VER 6 0 0)) {
+                # One language entry, then the registry entries; every other list is empty.
+                $langStrings = if ($v -ge (& $VER 6 6 0)) { 4 } else { 6 }
+                for ($i = 0; $i -lt $langStrings; $i++) { & $addStr 'default' }
+                for ($i = 0; $i -lt 4; $i++) { & $addStr '' -Ansi }
+                & $zeros $(if ($v -ge (& $VER 6 6 0)) { 19 } else { 21 })
+                $rootValues = @{ HKA = 1; HKCR = 2147483648; HKCU = 2147483649; HKLM = 2147483650; HKU = 2147483651 }
+                foreach ($re in @($RegistryEntries)) {
+                    & $addStr ([string]$re.Subkey); & $addStr ([string]$re.ValueName); & $addStr ([string]$re.ValueData)
+                    for ($i = 0; $i -lt 6; $i++) { & $addStr '' }
+                    & $zeros 20
+                    & $addBytes ([BitConverter]::GetBytes([uint32]$rootValues[[string]$re.Root]))
+                    & $addBytes @(0xFF, 0xFF)
+                    & $addBytes @([int]$re.Typ)
+                    if ($v -ge (& $VER 7 0 0)) { & $addBytes @([int]$re.Bitness) }
+                    & $addBytes ([BitConverter]::GetBytes([uint16]$re.Options))
+                }
+            }
             $record = $rec.ToArray()
 
             $crc = { param($bytes, $off, $len) [InstallerAnalysis.InnoBlock]::Crc32($bytes, $off, $len) }
@@ -3773,5 +3828,329 @@ Describe 'Inno Setup metadata through the deployment pipeline' {
         $m = Get-PackageMetadataFor -Path $f -InstallerType 'InnoSetup'
         $m.Format | Should -Be 'InnoSetup'
         $m.HeaderAvailable | Should -BeFalse
+    }
+}
+
+# ============================================================================
+# Registry settings readers and selective extraction
+# ============================================================================
+
+Describe 'Get-NsisRegistrySettings' {
+    It 'lists every WriteReg and DeleteReg instruction with root, view, type and section' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'reg-extras.exe') -ArpRoot 'HKCU' -RegistryExtras $true
+        $r = Get-NsisRegistrySettings -Path $f
+        $r.Format | Should -Be 'NSIS'
+        $r.Note | Should -BeNullOrEmpty
+        $rows = @($r.Entries)
+        $rows.Count | Should -Be 7
+        $rows[0].Root | Should -Be 'HKCU'
+        $rows[0].Key | Should -Be 'Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+        $rows[0].Name | Should -Be 'DisplayName'
+        $rows[0].Type | Should -Be 'REG_SZ'
+        $rows[0].Value | Should -Be 'Test App'
+        $rows[0].Action | Should -Be 'write'
+        $rows[0].View | Should -Be ''
+        $rows[0].Section | Should -Be 'Main'
+        $rows[0].Source | Should -Be 'Installer'
+        $rows[3].Value | Should -Be '"$INSTDIR\Uninstall.exe"'
+        $dword = $rows[4]
+        $dword.Root | Should -Be 'HKLM'
+        $dword.View | Should -Be '64 (root)'
+        $dword.Type | Should -Be 'REG_DWORD'
+        $dword.Name | Should -Be 'Installed'
+        $dword.Value | Should -Be '1'
+        $rows[5].Action | Should -Be 'delete value'
+        $rows[5].Name | Should -Be 'DisplayName'
+        $rows[6].Action | Should -Be 'delete key'
+        $rows[6].Key | Should -Be 'Software\TestCo\TestApp'
+        $rows[6].Flags | Should -Be '/ifempty'
+    }
+
+    It 'reports the SetRegView state when the root carries no forced view' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'reg-view.exe') -ArpRoot 'SHCTX' -SetRegView64 $true
+        $rows = @((Get-NsisRegistrySettings -Path $f).Entries)
+        $rows.Count | Should -Be 4
+        $rows[0].Root | Should -Be 'SHCTX'
+        $rows[0].View | Should -Be '64 (SetRegView)'
+        $rows[0].Section | Should -Be '(function)'
+    }
+
+    It 'labels rows from the uninstaller with the Source given' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'reg-unins.exe')
+        $rows = @((Get-NsisRegistrySettings -Path $f -Source 'Uninstaller').Entries)
+        $rows.Count | Should -Be 4
+        @($rows | Where-Object { $_.Source -ne 'Uninstaller' }).Count | Should -Be 0
+    }
+
+    It 'reports a missing firstheader without throwing' {
+        $f = Join-Path $TestDrive 'not-nsis.exe'
+        [System.IO.File]::WriteAllBytes($f, (New-Object byte[] 4096))
+        $r = Get-NsisRegistrySettings -Path $f
+        @($r.Entries).Count | Should -Be 0
+        $r.Note | Should -Be 'NSIS firstheader not found.'
+    }
+}
+
+Describe 'Get-InnoRegistrySettings' {
+    BeforeAll {
+        $script:innoRegEntries = @(
+            @{ Root = 'HKA';  Subkey = 'Software\TestCo\Test App'; ValueName = 'Path';    ValueData = '{app}';  Typ = 1; Options = (1 -shl 3); Bitness = 0 }
+            @{ Root = 'HKLM'; Subkey = 'Software\TestCo\Test App'; ValueName = 'Count';   ValueData = '5';      Typ = 3; Options = ((1 -shl 1) -bor (1 -shl 11)); Bitness = 2 }
+            @{ Root = 'HKCR'; Subkey = '.tst';                     ValueName = '';        ValueData = '';       Typ = 0; Options = (1 -shl 4); Bitness = 0 }
+            @{ Root = 'HKCU'; Subkey = 'Software\Old';             ValueName = '';        ValueData = '';       Typ = 0; Options = (1 -shl 6); Bitness = 0 }
+        )
+    }
+
+    It 'decodes the [Registry] entries of a 6.7.0 setup with actions, flags and view' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'reg-670.exe') -DataVersion '6.7.0' -RegistryEntries $script:innoRegEntries
+        $r = Get-InnoRegistrySettings -Path $f
+        $r.Format | Should -Be 'InnoSetup'
+        $r.Note | Should -BeNullOrEmpty
+        $rows = @($r.Entries)
+        $rows.Count | Should -Be 4
+        $rows[0].Root | Should -Be 'HKA'
+        $rows[0].Key | Should -Be 'Software\TestCo\Test App'
+        $rows[0].Name | Should -Be 'Path'
+        $rows[0].Type | Should -Be 'REG_SZ'
+        $rows[0].Value | Should -Be '{app}'
+        $rows[0].Action | Should -Be 'write'
+        $rows[0].Flags | Should -Be 'uninsdeletekey'
+        $rows[1].Root | Should -Be 'HKLM'
+        $rows[1].Type | Should -Be 'REG_DWORD'
+        $rows[1].View | Should -Be '64'
+        $rows[1].Flags | Should -Be 'uninsdeletevalue'
+        $rows[2].Root | Should -Be 'HKCR'
+        $rows[2].Action | Should -Be 'create key'
+        $rows[2].Flags | Should -Be 'uninsdeletekeyifempty'
+        $rows[3].Action | Should -Be 'delete key'
+    }
+
+    It 'reads the same entries across the 6.x layouts' {
+        foreach ($ver in '6.0.0', '6.1.0', '6.3.0', '6.4.0.1', '6.4.3', '6.5.0', '6.5.2', '6.6.0', '6.6.1') {
+            $f = New-InnoTestInstaller -Path (Join-Path $TestDrive ('reg-' + $ver + '.exe')) -DataVersion $ver -RegistryEntries $script:innoRegEntries
+            $r = Get-InnoRegistrySettings -Path $f
+            $r.Note | Should -BeNullOrEmpty -Because $ver
+            @($r.Entries).Count | Should -Be 4 -Because $ver
+            $r.Entries[1].View | Should -Be '64' -Because $ver
+            $r.Entries[3].Action | Should -Be 'delete key' -Because $ver
+        }
+    }
+
+    It 'uses the Bitness field on 7.0.0.3 setups' {
+        $entries = @(@{ Root = 'HKLM'; Subkey = 'Software\X'; ValueName = 'V'; ValueData = 'd'; Typ = 1; Options = 0; Bitness = 1 })
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'reg-700.exe') -DataVersion '7.0.0.3' -RegistryEntries $entries
+        $r = Get-InnoRegistrySettings -Path $f
+        $r.Note | Should -BeNullOrEmpty
+        $r.Entries[0].View | Should -Be '32'
+    }
+
+    It 'returns no entries with a note for setups without a [Registry] section' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'reg-none.exe') -DataVersion '6.7.0'
+        $r = Get-InnoRegistrySettings -Path $f
+        @($r.Entries).Count | Should -Be 0
+        $r.Note | Should -BeNullOrEmpty
+    }
+
+    It 'declines setup data older than 6.0.0' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'reg-557.exe') -DataVersion '5.5.7 (u)'
+        $r = Get-InnoRegistrySettings -Path $f
+        @($r.Entries).Count | Should -Be 0
+        $r.Note | Should -Match '6\.0\.0 and later'
+    }
+}
+
+Describe 'Get-MsiRegistrySettings' {
+    BeforeAll {
+        # A minimal MSI database with Component, Registry and RemoveRegistry tables.
+        function script:New-RegistryTestMsi {
+            param([Parameter(Mandatory)][string]$Path)
+            $installer = New-Object -ComObject WindowsInstaller.Installer
+            $db = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @($Path, 3))
+            $run = {
+                param([string]$sql)
+                $view = $db.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $db, @($sql))
+                $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null) | Out-Null
+                $view.GetType().InvokeMember('Close', 'InvokeMethod', $null, $view, $null) | Out-Null
+            }
+            & $run 'CREATE TABLE `Component` (`Component` CHAR(72) NOT NULL, `ComponentId` CHAR(38), `Directory_` CHAR(72) NOT NULL, `Attributes` SHORT NOT NULL, `Condition` CHAR(255), `KeyPath` CHAR(72) PRIMARY KEY `Component`)'
+            & $run 'CREATE TABLE `Registry` (`Registry` CHAR(72) NOT NULL, `Root` SHORT NOT NULL, `Key` CHAR(255) NOT NULL LOCALIZABLE, `Name` CHAR(255), `Value` CHAR(0) LOCALIZABLE, `Component_` CHAR(72) NOT NULL PRIMARY KEY `Registry`)'
+            & $run 'CREATE TABLE `RemoveRegistry` (`RemoveRegistry` CHAR(72) NOT NULL, `Root` SHORT NOT NULL, `Key` CHAR(255) NOT NULL LOCALIZABLE, `Name` CHAR(255) LOCALIZABLE, `Component_` CHAR(72) NOT NULL PRIMARY KEY `RemoveRegistry`)'
+            & $run "INSERT INTO ``Component`` (``Component``, ``ComponentId``, ``Directory_``, ``Attributes``, ``Condition``, ``KeyPath``) VALUES ('C32', '{11111111-1111-1111-1111-111111111111}', 'INSTALLDIR', 4, '', 'R1')"
+            & $run "INSERT INTO ``Component`` (``Component``, ``ComponentId``, ``Directory_``, ``Attributes``, ``Condition``, ``KeyPath``) VALUES ('C64', '{22222222-2222-2222-2222-222222222222}', 'INSTALLDIR', 260, '', 'R2')"
+            & $run "INSERT INTO ``Registry`` (``Registry``, ``Root``, ``Key``, ``Name``, ``Value``, ``Component_``) VALUES ('R1', -1, 'Software\TestCo\App', 'InstallDir', '[INSTALLDIR]', 'C32')"
+            & $run "INSERT INTO ``Registry`` (``Registry``, ``Root``, ``Key``, ``Name``, ``Value``, ``Component_``) VALUES ('R2', 2, 'Software\TestCo\App', 'Count', '#5', 'C64')"
+            & $run "INSERT INTO ``Registry`` (``Registry``, ``Root``, ``Key``, ``Name``, ``Value``, ``Component_``) VALUES ('R3', 1, 'Software\TestCo\App', 'Expand', '#%%TEMP%\x', 'C32')"
+            & $run "INSERT INTO ``Registry`` (``Registry``, ``Root``, ``Key``, ``Name``, ``Value``, ``Component_``) VALUES ('R4', 0, '.tst', '*', NULL, 'C32')"
+            & $run "INSERT INTO ``Registry`` (``Registry``, ``Root``, ``Key``, ``Name``, ``Value``, ``Component_``) VALUES ('R5', 2, 'Software\TestCo\Hash', 'Literal', '##notanumber', 'C32')"
+            & $run "INSERT INTO ``Registry`` (``Registry``, ``Root``, ``Key``, ``Name``, ``Value``, ``Component_``) VALUES ('R6', 2, 'Software\TestCo\Multi', 'List', 'a[~]b', 'C32')"
+            & $run "INSERT INTO ``RemoveRegistry`` (``RemoveRegistry``, ``Root``, ``Key``, ``Name``, ``Component_``) VALUES ('X1', 2, 'Software\TestCo\Old', '-', 'C32')"
+            & $run "INSERT INTO ``RemoveRegistry`` (``RemoveRegistry``, ``Root``, ``Key``, ``Name``, ``Component_``) VALUES ('X2', 1, 'Software\TestCo\App', 'Stale', 'C32')"
+            $db.GetType().InvokeMember('Commit', 'InvokeMethod', $null, $db, $null) | Out-Null
+            foreach ($o in @($db, $installer)) { [System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($o) | Out-Null }
+            [GC]::Collect(); [GC]::WaitForPendingFinalizers()
+            return $Path
+        }
+    }
+
+    It 'reads the Registry and RemoveRegistry tables with decoded types, roots and component views' {
+        $f = New-RegistryTestMsi -Path (Join-Path $TestDrive 'reg.msi')
+        $r = Get-MsiRegistrySettings -MsiPath $f
+        $r.Format | Should -Be 'MSI'
+        $r.Note | Should -BeNullOrEmpty
+        $rows = @($r.Entries)
+        $rows.Count | Should -Be 8
+        $r1 = $rows | Where-Object { $_.Name -eq 'InstallDir' }
+        $r1.Root | Should -Be 'HKMU'
+        $r1.Type | Should -Be 'REG_SZ'
+        $r1.Value | Should -Be '[INSTALLDIR]'
+        $r1.View | Should -Be '32'
+        $r1.Section | Should -Be 'C32'
+        $r1.Source | Should -Be 'Registry table'
+        $r2 = $rows | Where-Object { $_.Name -eq 'Count' }
+        $r2.Root | Should -Be 'HKLM'
+        $r2.Type | Should -Be 'REG_DWORD'
+        $r2.Value | Should -Be '5'
+        $r2.View | Should -Be '64'
+        ($rows | Where-Object { $_.Name -eq 'Expand' }).Type | Should -Be 'REG_EXPAND_SZ'
+        ($rows | Where-Object { $_.Name -eq 'Expand' }).Value | Should -Be '%TEMP%\x'
+        $r4 = $rows | Where-Object { $_.Key -eq '.tst' }
+        $r4.Root | Should -Be 'HKCR'
+        $r4.Action | Should -Be 'create key; delete on uninstall'
+        $r4.Name | Should -Be ''
+        ($rows | Where-Object { $_.Name -eq 'Literal' }).Value | Should -Be '#notanumber'
+        ($rows | Where-Object { $_.Name -eq 'List' }).Type | Should -Be 'REG_MULTI_SZ'
+        $x1 = $rows | Where-Object { $_.Key -eq 'Software\TestCo\Old' }
+        $x1.Action | Should -Be 'delete key'
+        $x1.Source | Should -Be 'RemoveRegistry table'
+        ($rows | Where-Object { $_.Name -eq 'Stale' }).Action | Should -Be 'delete value'
+    }
+
+    It 'returns a note for a missing file' {
+        $r = Get-MsiRegistrySettings -MsiPath (Join-Path $TestDrive 'missing.msi')
+        @($r.Entries).Count | Should -Be 0
+        $r.Note | Should -Match 'not found'
+    }
+}
+
+Describe 'Get-InstallerRegistrySettings' {
+    It 'dispatches MSI, NSIS and Inno Setup and declines other formats' {
+        $msi = New-RegistryTestMsi -Path (Join-Path $TestDrive 'dispatch.msi')
+        (Get-InstallerRegistrySettings -Path $msi -InstallerType 'MSI').Entries.Count | Should -Be 8
+        $nsis = New-NsisTestInstaller -Path (Join-Path $TestDrive 'dispatch-nsis.exe')
+        (Get-InstallerRegistrySettings -Path $nsis -InstallerType 'NSIS').Entries.Count | Should -Be 4
+        $inno = New-InnoTestInstaller -Path (Join-Path $TestDrive 'dispatch-inno.exe') -DataVersion '6.7.0' -RegistryEntries @(@{ Root = 'HKLM'; Subkey = 'S'; ValueName = 'N'; ValueData = 'D'; Typ = 1; Options = 0; Bitness = 0 })
+        (Get-InstallerRegistrySettings -Path $inno -InstallerType 'InnoSetup').Entries.Count | Should -Be 1
+        $other = Get-InstallerRegistrySettings -Path $nsis -InstallerType 'InstallShield'
+        @($other.Entries).Count | Should -Be 0
+        $other.Note | Should -Match 'MSI, NSIS and Inno Setup'
+    }
+}
+
+Describe 'Expand-InstallerEntries' -Tag 'Live7z' {
+    BeforeAll {
+        $script:sevenZip = Find-7ZipPath
+        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+    }
+
+    It 'extracts only the named entries and keeps their folders' {
+        if (-not $script:sevenZip) { Set-ItResult -Skipped -Because '7-Zip not installed on this machine.'; return }
+        $zip = Join-Path $TestDrive 'entries.zip'
+        New-TestZipFile -Path $zip -Entries @{
+            'bin/app.exe'            = 'exe'
+            'bin/plugins/one.dll'    = 'one'
+            'bin/plugins/two.dll'    = 'two'
+            'docs/read me.txt'       = 'readme'
+            'skip.txt'               = 'skip'
+        }
+        $out = Join-Path $TestDrive 'entries-out'
+        $code = Expand-InstallerEntries -Path $zip -EntryName @('bin\plugins\one.dll', 'docs\read me.txt', 'bin\app.exe') -OutputPath $out -SevenZipPath $script:sevenZip
+        $code | Should -Be 0
+        (Test-Path -LiteralPath (Join-Path $out 'bin\plugins\one.dll')) | Should -BeTrue
+        (Test-Path -LiteralPath (Join-Path $out 'docs\read me.txt')) | Should -BeTrue
+        (Test-Path -LiteralPath (Join-Path $out 'bin\app.exe')) | Should -BeTrue
+        (Test-Path -LiteralPath (Join-Path $out 'bin\plugins\two.dll')) | Should -BeFalse
+        (Test-Path -LiteralPath (Join-Path $out 'skip.txt')) | Should -BeFalse
+    }
+
+    It 'throws when 7-Zip is missing' {
+        { Expand-InstallerEntries -Path 'C:\nope.zip' -EntryName 'a' -OutputPath (Join-Path $TestDrive 'x') -SevenZipPath 'C:\nope\7z.exe' } | Should -Throw
+    }
+}
+
+Describe 'New-AnalysisSummaryText install-mode branches' {
+    It 'lists the non-default mode with its switch, folder, uninstall command and key' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'modes-summary.exe') -Indirect $true -MultiMode $true -ArpRoot 'SHCTX' -SetRegView64 $true
+        $pkg = Get-NsisMetadata -Path $f
+        $fi = Get-InstallerFileInfo -Path $f
+        $text = New-AnalysisSummaryText -FileInfo $fi -InstallerType 'NSIS' -PackageMetadata $pkg
+        $text | Should -Match 'Install modes: CurrentUser \(default\), AllUsers via /allusers'
+        $text.Contains('    AllUsers: args /S /allusers  |  folder %ProgramW6432%\TestApp  |  uninstall "%ProgramW6432%\TestApp\Uninstall Test App.exe" /S /allusers  |  key HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp (64-bit view)') | Should -BeTrue
+    }
+
+    It 'prints no branch line for a single-mode installer' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'modes-single.exe')
+        $pkg = Get-NsisMetadata -Path $f
+        $fi = Get-InstallerFileInfo -Path $f
+        $text = New-AnalysisSummaryText -FileInfo $fi -InstallerType 'NSIS' -PackageMetadata $pkg
+        $text | Should -Not -Match 'Install modes'
+        $text | Should -Not -Match '    AllUsers:'
+    }
+}
+
+Describe 'Get-NsisMetadata detection key resolution' {
+    It 'resolves a key written through a user variable (StrCpy $0 then WriteReg $0)' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'key-var.exe') -ArpRoot 'HKLM' -SetRegView64 $true -KeyViaVariable $true
+        $m = Get-NsisMetadata -Path $f
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+        $m.DisplayName | Should -Be 'Test App'
+        $m.DisplayVersion | Should -Be '1.2.3'
+    }
+
+    It 'prefers the literal key that carries DisplayName over a variant key built from a variable' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'key-variant.exe') -ArpRoot 'HKLM' -SetRegView64 $true -VariantKeys $true
+        $m = Get-NsisMetadata -Path $f
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+        $m.UninstallRegistryKeyNote | Should -Not -Match 'computed at run time'
+    }
+
+    It 'takes the 64-bit view from an HKLM64 root without any SetRegView' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'key-root64.exe') -ArpRoot 'HKLM64'
+        $m = Get-NsisMetadata -Path $f
+        $m.RegistryHive | Should -Be 'HKLM'
+        $m.RegistryView | Should -Be '64'
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+    }
+
+    It 'applies a SetRegView 64 that sits after the key write in code order' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'key-init.exe') -ArpRoot 'HKLM' -RegViewInInit $true
+        $m = Get-NsisMetadata -Path $f
+        $m.RegistryView | Should -Be '64'
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+        $m.UninstallRegistryKeyNote | Should -Match 'onInit'
+    }
+
+    It 'keeps WOW6432Node for an HKLM key when the script never selects the 64-bit view' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'key-wow.exe') -ArpRoot 'HKLM'
+        $m = Get-NsisMetadata -Path $f
+        $m.RegistryView | Should -Be '32'
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+    }
+
+    It 'registers SHCTX under HKLM when the script switches to all users and targets Program Files without a manifest elevation' {
+        $f = New-NsisTestInstaller -Path (Join-Path $TestDrive 'key-shctx-pf.exe') -ArpRoot 'SHCTX' -SetShellVarContextAll $true -SetRegView64 $true -InstallDirPrefix 'PROGRAMFILES64'
+        $m = Get-NsisMetadata -Path $f
+        $m.RegistryHive | Should -Be 'HKLM'
+        $m.InstallContext | Should -Be 'PerMachine'
+        $m.UninstallRegistryKey | Should -Be 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp'
+    }
+}
+
+Describe 'Get-InnoSetupMetadata without an uninstaller' {
+    It 'reports no key and no uninstall command when Uninstallable is no' {
+        $f = New-InnoTestInstaller -Path (Join-Path $TestDrive 'no-unins.exe') -Uninstallable 'no'
+        $m = Get-InnoSetupMetadata -Path $f
+        $m.UninstallRegistryKey | Should -Be ''
+        $m.SilentUninstallCommand | Should -Be ''
+        $m.UninstallRegistryKeyNote | Should -Match 'Uninstallable=no'
     }
 }

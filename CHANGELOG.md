@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.3.0] - 2026-09-04
+
+### Changed
+
+- Show each install mode's switch, folder, uninstall command and detection key in the Overview.
+
+### Fixed
+
+- Resolve NSIS detection keys written through a variable or beside a variant key.
+- Place NSIS detection keys in the 64-bit view when SetRegView 64 runs in .onInit.
+- Register SHCTX keys under HKLM when the script targets Program Files for all users.
+- Honour HKLM64 and HKLM32 roots and SetRegView 32 when placing NSIS detection keys.
+- Report no detection key for Inno Setup scripts with Uninstallable=no.
+- Read NSIS headers faster and without exhausting memory on very large installers.
+
 ## [1.3.2.0] - 2026-09-04
 
 ### Added
