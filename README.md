@@ -63,6 +63,17 @@ Every analysis surfaces:
   material (EncryptionKey, MacKey, IV, Mac) is redacted by default;
   pass `-IncludeIntunewinKeyMaterial` to `Get-IntunewinMetadata` if you
   need the raw values.
+- **NSIS compiled script** — the header block appended to every NSIS
+  installer is decompressed (LZMA, zlib, uncompressed; bzip2 reported as
+  not decoded) and read directly: `InstallDir`, the `WriteUninstaller`
+  path, every Add/Remove Programs value the script writes, the hive
+  (HKCU or HKLM) and 32/64-bit registry view in effect at that write,
+  `SetShellVarContext`, and the manifest `requestedExecutionLevel`. The
+  silent uninstall string comes out executable
+  (`"%LOCALAPPDATA%\App\Uninstall.exe" /S`), and the predicted ARP key
+  lands under `WOW6432Node` when a 32-bit installer never calls
+  `SetRegView 64`. Installers that pick the folder in `.onInit` are
+  resolved from their `StrCpy $INSTDIR` assignments.
 - **Effective post-patch detection target** — for outer files that
   contain a base MSI plus a cumulative MSP (Adobe Reader, Office, most
   enterprise vendors), the analyzer combines the inner MSI's ProductCode

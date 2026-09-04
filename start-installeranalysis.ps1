@@ -17,7 +17,7 @@
 
 .NOTES
     ScriptName : start-installeranalysis.ps1
-    Version    : 1.2.0.1
+    Version    : 1.3.0.0
     Updated    : 2026-05-20
 #>
 
@@ -218,6 +218,14 @@ $txtStatus          = $window.FindName('txtStatus')
 
 # Silence PSSA about FindName locals consumed via their typed control refs.
 $null = $txtAppTitle, $txtVersion, $viewHost
+
+# Installed version: the script header is the single source of truth for the
+# sidebar label, the About panel and the startup log line.
+$script:AppVersion = '0.0.0.0'
+foreach ($headerLine in (Get-Content -LiteralPath $PSCommandPath -TotalCount 60)) {
+    if ($headerLine -match '^\s*Version\s*:\s*([0-9][0-9\.]*[0-9])\s*$') { $script:AppVersion = $Matches[1]; break }
+}
+$txtVersion.Text = 'v' + $script:AppVersion
 
 # =============================================================================
 # Log drawer + status bar helpers.
@@ -579,7 +587,7 @@ function Update-BreadcrumbBar {
             FrameIndex = $segments.Count
         }
     }
-    # Current frame (not on stack — it's live state).
+    # Current frame (not on stack - it's live state).
     $currentName = if ($script:LastFileInfo) { [string]$script:LastFileInfo.FileName }
                    else { [System.IO.Path]::GetFileName([string]$txtFilePath.Text) }
     $segments += [PSCustomObject]@{ Label = $currentName; IsCurrent = $true; FrameIndex = $segments.Count }
@@ -747,6 +755,16 @@ function Initialize-BackgroundAnalyzer {
     $initPS.Runspace = $script:BgRunspace
     [void]$initPS.AddScript({
         param($MsiManifestPath, $ModulePath)
+        # A runspace opened inside a Windows PowerShell process that was
+        # launched from PowerShell 7 inherits the 7.x module directories in
+        # PSModulePath ahead of the 5.1 ones; autoloading
+        # Microsoft.PowerShell.Utility from there yields a module without
+        # Get-FileHash. Pin the 5.1 roots before the first cmdlet resolves.
+        $winPsModules = Join-Path $PSHOME 'Modules'
+        $roots = @($env:PSModulePath -split ';' | Where-Object { $_ -and $_ -notmatch '(?i)[\\/]PowerShell[\\/](7[\\/]|Modules)|microsoft\.powershell_' })
+        if ($roots -notcontains $winPsModules) { $roots = @($winPsModules) + $roots }
+        $env:PSModulePath = ($roots -join ';')
+        Import-Module Microsoft.PowerShell.Utility -Force -ErrorAction SilentlyContinue
         if ($MsiManifestPath) {
             try { Import-Module -Name $MsiManifestPath -Force -DisableNameChecking -ErrorAction Stop } catch { $null = $_ }
         }
@@ -828,7 +846,7 @@ function Invoke-AnalysisPipeline {
             $pkg = Get-PackageMetadataFor -Path $Path -InstallerType $type
 
             $State.Step = 'Resolving deployment fields...'
-            $sw = Get-SilentSwitches -InstallerType $type -FilePath $Path -MsiProperties $msi
+            $sw = Get-SilentSwitches -InstallerType $type -FilePath $Path -MsiProperties $msi -PackageMetadata $pkg
             $df = Get-DeploymentFields -FileInfo $fi -MsiProperties $msi -Switches $sw -PackageMetadata $pkg -InstallerType $type -MsiSummary $msiSummary
 
             $payload = $null
@@ -1189,7 +1207,7 @@ function New-AboutPanel {
     [void]$grid.ColumnDefinitions.Add($c2)
 
     $rows = @(
-        @{ K = 'Version';    V = 'v1.2.0.1.0' },
+        @{ K = 'Version';    V = ('v' + $script:AppVersion) },
         @{ K = 'Author';     V = 'Jason Ulbright' },
         @{ K = 'License';    V = 'MIT' },
         @{ K = 'Formats';    V = '17 detected types -- MSI, NSIS, Inno Setup, InstallShield, WiX Burn, Advanced Installer, 7zSFX, WinRAR SFX, Chocolatey, NuGet, Intunewin, MSIX, MSIX Bundle, PSADT v3, PSADT v4, Squirrel, Unknown' },
@@ -1531,7 +1549,11 @@ function New-AnalysisDataTable {
             $name = $p.Name
             $val  = $p.Value
             if ($null -eq $val) { continue }
-            if ($val -is [System.Collections.IEnumerable] -and -not ($val -is [string])) {
+            if ($val -is [System.Collections.IDictionary]) {
+                foreach ($k in @($val.Keys | Sort-Object)) {
+                    [void]$dt.Rows.Add('PackageMetadata', ($name + '.' + $k), [string]$val[$k])
+                }
+            } elseif ($val -is [System.Collections.IEnumerable] -and -not ($val -is [string])) {
                 [void]$dt.Rows.Add('PackageMetadata', $name, ('(' + (@($val).Count) + ' items)'))
             } else {
                 [void]$dt.Rows.Add('PackageMetadata', $name, [string]$val)
@@ -2001,7 +2023,7 @@ if (-not [string]::IsNullOrWhiteSpace($StartupFile) -and (Test-Path -LiteralPath
 # =============================================================================
 # Ship it.
 # =============================================================================
-Add-LogLine ('Installer Analysis v1.2.0.1.0 -- WPF shell loaded.')
+Add-LogLine ('Installer Analysis v' + $script:AppVersion + ' -- WPF shell loaded.')
 Set-StatusText 'Ready.'
 
 [void]$window.ShowDialog()
