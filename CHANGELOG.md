@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.3.0.1] - 2026-09-04
+
+### Fixed
+
+- **Header string decoding no longer copies the header per call.** The
+  strings block is decoded once into a table string and entries index
+  into it; binding the header byte array to a typed parameter for every
+  string made PowerShell copy it each time, so scripts with thousands of
+  entries took minutes.
+- **Run-time `$INSTDIR` resolution covers user-variable indirection.**
+  `StrCpy $INSTDIR "$0\App"` resolves through the last literal assigned
+  to `$0` (electron-builder), `StrCpy $INSTDIR "$INSTDIR\App"` extends
+  the assignment before it (MultiUser scripts), and `WriteUninstaller
+  "$2"` / an `UninstallString` of `"$2" $0` resolve through `$2`. A
+  relative `WriteUninstaller` path is rooted at `$INSTDIR`.
+- **Candidate choice follows the elevation model.** With several
+  run-time folders, an installer that requests elevation or registers
+  under HKLM takes the Program Files candidate; otherwise the per-user
+  folder. `SHCTX` resolves to HKLM only when the script switches to the
+  all-users context and elevates. A per-user folder picked from the
+  candidates keeps its per-user meaning under `SetShellVarContext all`.
+- **NSIS 2.x shell encoding.** The registry-resolved Program Files
+  constant carries its flag in the high byte in the 2.x line; it decodes
+  to `$PROGRAMFILES` / `$PROGRAMFILES64` instead of `$SHELL[..]`.
+- **Install context** is decided by where the files land: a Program
+  Files target is per-machine even when the script registers under HKCU.
+
 ## [1.3.0.0] - 2026-09-04
 
 ### Added

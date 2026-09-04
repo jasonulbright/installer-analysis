@@ -1988,32 +1988,31 @@ function script:Read-NsisString {
     .SYNOPSIS
         Decodes one NSIS string-table entry into script notation.
     .DESCRIPTION
-        Escape codes 1 (LangString), 2 (shell folder), 3 (variable) and 4
-        (literal next unit) precede one code unit in Unicode builds and two
-        bytes in ANSI builds. Shell folders decode to $NAME form; variables
-        to $0-$9, $R0-$R9 and the built-in names; language strings to
-        $(LangString#n) unless the caller resolves them. Ptr counts TCHARs
-        from the start of the strings block.
+        Table is the whole strings block decoded once: UTF-16 for Unicode
+        builds and Latin-1 for ANSI builds, so a char index equals the TCHAR
+        pointer the header stores. Escape codes 1 (LangString), 2 (shell
+        folder), 3 (variable) and 4 (literal next unit) precede one code
+        unit in Unicode builds and two bytes in ANSI builds. Shell folders
+        decode to $NAME form; variables to $0-$9, $R0-$R9 and the built-in
+        names; language strings to $(LangString#n) unless the caller
+        resolves them.
     #>
     param(
-        [Parameter(Mandatory)][byte[]]$Header,
-        [Parameter(Mandatory)][int]$StringsOffset,
-        [Parameter(Mandatory)][int]$StringsEnd,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Table,
         [Parameter(Mandatory)][int]$Ptr,
         [Parameter(Mandatory)][bool]$Unicode,
         [hashtable]$LangStrings,
         [int]$Depth = 0
     )
-    if ($Ptr -lt 0) { return '' }
+    if ($Ptr -lt 0 -or $Ptr -ge $Table.Length) { return '' }
+    $end = $Table.IndexOf([char]0, $Ptr)
+    if ($end -lt 0) { $end = $Table.Length }
+    if ($end -eq $Ptr) { return '' }
     $sb = New-Object System.Text.StringBuilder
-    $charSize = if ($Unicode) { 2 } else { 1 }
-    $pos = $StringsOffset + ($Ptr * $charSize)
-    if ($pos -lt $StringsOffset -or $pos -ge $StringsEnd) { return '' }
-
-    while (($pos + $charSize) -le $StringsEnd) {
-        $u = if ($Unicode) { [int][BitConverter]::ToUInt16($Header, $pos) } else { [int]$Header[$pos] }
-        $pos += $charSize
-        if ($u -eq 0) { break }
+    $pos = $Ptr
+    while ($pos -lt $end) {
+        $u = [int]$Table[$pos]
+        $pos++
         $code = 0
         if ($u -ge 1 -and $u -le 4) { $code = $u }
         elseif ($Unicode -and $u -ge 0xE000 -and $u -le 0xE003) { $code = $u - 0xE000 + 1 }
@@ -2021,18 +2020,20 @@ function script:Read-NsisString {
             [void]$sb.Append([char]$u)
             continue
         }
-        if (($pos + 2) -gt $StringsEnd) { break }
         if ($Unicode) {
-            $arg = [int][BitConverter]::ToUInt16($Header, $pos)
+            if ($pos -ge $end) { break }
+            $arg = [int]$Table[$pos]
+            $pos++
             $lo = $arg -band 0xFF
             $hi = ($arg -shr 8) -band 0xFF
         }
         else {
-            $lo = [int]$Header[$pos]
-            $hi = [int]$Header[$pos + 1]
+            if (($pos + 1) -ge $end) { break }
+            $lo = [int]$Table[$pos]
+            $hi = [int]$Table[$pos + 1]
             $arg = $lo
+            $pos += 2
         }
-        $pos += 2
         switch ($code) {
             4 {
                 [void]$sb.Append([char]$arg)
@@ -2045,11 +2046,13 @@ function script:Read-NsisString {
                 else { [void]$sb.Append('$__VAR' + $index) }
             }
             2 {
+                # Registry-resolved folder. NSIS 3 sets bit 7 of the low
+                # byte, bit 6 selects the 64-bit view and the low bits point
+                # at the value name (ProgramFilesDir / CommonFilesDir); the
+                # 2.x line sets bit 7 of the high byte instead and only ever
+                # resolved Program Files this way.
                 if (($lo -band 0x80) -ne 0) {
-                    # Registry-resolved folder: bit 6 selects the 64-bit view,
-                    # the low bits point at the value name (ProgramFilesDir /
-                    # CommonFilesDir).
-                    $valueName = if ($Depth -lt 1) { Read-NsisString -Header $Header -StringsOffset $StringsOffset -StringsEnd $StringsEnd -Ptr ($lo -band 0x3F) -Unicode $Unicode -Depth ($Depth + 1) } else { "" }
+                    $valueName = if ($Depth -lt 1) { Read-NsisString -Table $Table -Ptr ($lo -band 0x3F) -Unicode $Unicode -Depth ($Depth + 1) } else { '' }
                     $is64 = (($lo -band 0x40) -ne 0)
                     $name = switch -Regex ($valueName) {
                         '^ProgramFilesDir' { if ($is64) { 'PROGRAMFILES64' } else { 'PROGRAMFILES' } }
@@ -2057,6 +2060,9 @@ function script:Read-NsisString {
                         default            { 'SHELL[' + $valueName + ']' }
                     }
                     [void]$sb.Append('$' + $name)
+                }
+                elseif (($hi -band 0x80) -ne 0) {
+                    [void]$sb.Append($(if (($lo -band 0x40) -ne 0) { '$PROGRAMFILES64' } else { '$PROGRAMFILES' }))
                 }
                 else {
                     $key = ('{0:X2},{1:X2}' -f $lo, $hi)
@@ -2337,24 +2343,27 @@ function Get-NsisMetadata {
     $unicode = ([BitConverter]::ToUInt16($h, $stringsOffset) -eq 0)
     $meta.Unicode = $unicode
 
-    $str = { param($ptr) Read-NsisString -Header $h -StringsOffset $stringsOffset -StringsEnd $stringsEnd -Ptr $ptr -Unicode $unicode -LangStrings $langStrings }
+    # The strings block decoded once; a char index equals a TCHAR pointer.
+    $table = if ($unicode) { [System.Text.Encoding]::Unicode.GetString($h, $stringsOffset, $stringsEnd - $stringsOffset) }
+             else { [System.Text.Encoding]::GetEncoding(28591).GetString($h, $stringsOffset, $stringsEnd - $stringsOffset) }
+    $langStrings = @{}
+    $str = { param($ptr) Read-NsisString -Table $table -Ptr $ptr -Unicode $unicode -LangStrings $langStrings }
 
     # Language table: LANGID(2) + dlg_offset(4) + rtl(4) in NSIS 3, LANGID(2)
     # + dlg_offset(4) in NSIS 2; the first layout whose Name slot (index 2)
     # points inside the strings block and decodes to text wins.
-    $langStrings = @{}
     $langTableSize = [int][BitConverter]::ToInt32($h, 100)
     if ($langCount -gt 0 -and $langOffset -gt 0 -and $langTableSize -gt 10 -and ($langOffset + $langTableSize) -le $h.Length) {
         foreach ($prefix in @(10, 6, 8)) {
             $count = [int](($langTableSize - $prefix) / 4)
             if ($count -lt 3) { continue }
             $namePtr = [BitConverter]::ToInt32($h, $langOffset + $prefix + (2 * 4))
-            if ($namePtr -le 0 -or ($namePtr * $(if ($unicode) { 2 } else { 1 })) -ge ($stringsEnd - $stringsOffset)) { continue }
-            $candidate = Read-NsisString -Header $h -StringsOffset $stringsOffset -StringsEnd $stringsEnd -Ptr $namePtr -Unicode $unicode
+            if ($namePtr -le 0 -or $namePtr -ge $table.Length) { continue }
+            $candidate = Read-NsisString -Table $table -Ptr $namePtr -Unicode $unicode
             if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
             for ($i = 0; $i -lt $count; $i++) {
                 $ptr = [BitConverter]::ToInt32($h, $langOffset + $prefix + ($i * 4))
-                if ($ptr -gt 0) { $langStrings[$i] = (Read-NsisString -Header $h -StringsOffset $stringsOffset -StringsEnd $stringsEnd -Ptr $ptr -Unicode $unicode) }
+                if ($ptr -gt 0 -and $ptr -lt $table.Length) { $langStrings[$i] = (Read-NsisString -Table $table -Ptr $ptr -Unicode $unicode) }
             }
             $meta.Name = $candidate
             break
@@ -2372,8 +2381,12 @@ function Get-NsisMetadata {
     }
 
     # Entry walk in script order. Opcodes: 13 SetFlag (1 = SetShellVarContext,
-    # 12 = SetRegView), 25 StrCpy, 51 WriteReg, 62 WriteUninstaller.
+    # 12 = SetRegView), 25 StrCpy, 51 WriteReg, 62 WriteUninstaller. Code
+    # order is not execution order (.onInit sits wherever the script put
+    # it), so flags are read as "seen anywhere" plus "last value before the
+    # ARP write" and resolved against the chosen folder afterwards.
     $allUsers = $false
+    $allUsersSeen = $false
     $regView64 = $false
     $regViewPrevious = $false
     $arpRoot = ''
@@ -2382,11 +2395,52 @@ function Get-NsisMetadata {
     $arpValues = @{}
     $uninstallerPath = ''
     $instDirAssignments = New-Object System.Collections.Generic.List[string]
+    $userVars = @{}
+    $unresolvable = '\$(\d|R\d|__VAR|\(LangString|OUTDIR|EXEDIR|PLUGINSDIR|TEMP|CMDLINE|EXEPATH|EXEFILE|LANGUAGE)'
+    $walkState = @{ LastInstDirResolvable = $false }
+    # $N / $RN at the start of a value is replaced with the last literal
+    # assigned to that user variable during the walk.
+    $resolveUserVar = {
+        param([string]$value)
+        if ($value -match '^(")?(\$(?:R?\d))(.*)$' -and $userVars.ContainsKey($Matches[2])) {
+            return ([string]$Matches[1] + [string]$userVars[$Matches[2]] + [string]$Matches[3])
+        }
+        return $value
+    }
+    $addCandidate = {
+        param([string]$value)
+        if (-not $value) { $walkState.LastInstDirResolvable = $false; return }
+        # One level of indirection: $0..$9 / $R0..$R9 hold the last literal
+        # assigned earlier in the walk (electron-builder builds $INSTDIR
+        # from $0); a conditional non-literal reassignment in between does
+        # not clear it.
+        if ($value -match '^(\$(?:R?\d))(\\.*)?$' -and $userVars.ContainsKey($Matches[1])) {
+            $value = [string]$userVars[$Matches[1]] + [string]$Matches[2]
+        }
+        # StrCpy $INSTDIR "$INSTDIR\<suffix>" extends the assignment right
+        # before it (MultiUser-style scripts assemble the path in two
+        # steps). An unresolvable base, or a base that already ends in the
+        # suffix's first segment, belongs to a branch this walk cannot see.
+        if ($value -match '^\$INSTDIR(\\.*)$') {
+            $suffix = $Matches[1]
+            if ($instDirAssignments.Count -gt 0 -and $walkState.LastInstDirResolvable) {
+                $k = $instDirAssignments.Count - 1
+                $firstSegment = ($suffix.TrimStart('\') -split '\\')[0]
+                $lastSegment = ($instDirAssignments[$k] -split '\\')[-1]
+                if ($firstSegment -and $lastSegment -ne $firstSegment) { $instDirAssignments[$k] = $instDirAssignments[$k] + $suffix }
+            }
+            return
+        }
+        if ($value -match $unresolvable -or $value -match '\$INSTDIR') { $walkState.LastInstDirResolvable = $false; return }
+        $walkState.LastInstDirResolvable = $true
+        if (-not $instDirAssignments.Contains($value)) { $instDirAssignments.Add($value) }
+        else { $instDirAssignments.Remove($value) | Out-Null; $instDirAssignments.Add($value) }
+    }
     for ($e = 0; $e -lt $entriesCount; $e++) {
         $base = $entriesOffset + ($e * 28)
         $op = [BitConverter]::ToInt32($h, $base)
+        if ($op -ne 13 -and $op -ne 25 -and $op -ne 51 -and $op -ne 62) { continue }
         $p0 = [BitConverter]::ToInt32($h, $base + 4)
-        $p0u = [BitConverter]::ToUInt32($h, $base + 4)
         $p1 = [BitConverter]::ToInt32($h, $base + 8)
         $p2 = [BitConverter]::ToInt32($h, $base + 12)
         $p3 = [BitConverter]::ToInt32($h, $base + 16)
@@ -2400,22 +2454,26 @@ function Get-NsisMetadata {
                 $valueText = (& $str $p1)
                 $value = 0
                 [void][int]::TryParse($valueText, [ref]$value)
-                if ($p0 -eq 1)  { $allUsers = ($value -ne 0) }
+                if ($p0 -eq 1)  { $allUsers = ($value -ne 0); if ($allUsers) { $allUsersSeen = $true } }
                 if ($p0 -eq 12) { $regViewPrevious = $regView64; $regView64 = ($value -ne 0) }
             }
             25 {
-                # StrCpy $INSTDIR "<literal>" - the run-time install directory
-                # for scripts that choose the folder in .onInit.
-                if ($p0 -ne 21) { break }
-                $assigned = (& $str $p1)
-                if ($assigned -and $assigned -notmatch '\$(\d|R\d|__VAR|\(LangString|INSTDIR|OUTDIR|EXEDIR|PLUGINSDIR|TEMP|CMDLINE)' -and -not $instDirAssignments.Contains($assigned)) {
-                    $instDirAssignments.Add($assigned)
+                if ($p0 -lt 20) {
+                    # Literal assignment to a user variable, kept for the
+                    # $INSTDIR indirection above; a later assignment wins.
+                    $assigned = (& $str $p1)
+                    $name = if ($p0 -lt 10) { '$' + $p0 } else { '$R' + ($p0 - 10) }
+                    if ($assigned -and $assigned -notmatch $unresolvable -and $p2 -eq 0 -and $p3 -eq 0) { $userVars[$name] = $assigned }
+                    # A non-literal reassignment (registry read, plugin result) is conditional in practice; the literal stays.
+                    break
                 }
+                if ($p0 -ne 21 -or $p2 -ne 0 -or $p3 -ne 0) { break }
+                & $addCandidate (& $str $p1)
             }
             62 {
                 if (-not $uninstallerPath) {
-                    $candidate = (& $str $p0)
-                    if ($candidate -match '\.exe$') { $uninstallerPath = $candidate }
+                    $candidate = & $resolveUserVar (& $str $p0)
+                    if ($candidate -match '(?i)\.exe$') { $uninstallerPath = $candidate }
                 }
             }
             51 {
@@ -2423,10 +2481,9 @@ function Get-NsisMetadata {
                 if ($subkey -notmatch '(?i)^Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\') { break }
                 if (-not $arpSubkey) {
                     $arpSubkey = $subkey
-                    $arpRoot = Get-NsisRootKeyName -Root $p0u
+                    $arpRoot = Get-NsisRootKeyName -Root ([BitConverter]::ToUInt32($h, $base + 4))
                     if ($arpRoot -notin 'HKCU', 'HKLM', 'SHCTX') { $arpRoot = '' }
                     $arpView64 = $regView64
-                    if ($arpRoot -eq 'SHCTX') { $arpRoot = if ($allUsers) { 'HKLM' } else { 'HKCU' } }
                 }
                 elseif ($subkey -ne $arpSubkey) { break }
                 $valueName = (& $str $p2)
@@ -2435,40 +2492,58 @@ function Get-NsisMetadata {
             }
         }
     }
-    $meta.ShellVarContext = if ($allUsers) { 'all' } else { 'current' }
     $meta.ArpValues = $arpValues
     $meta.InstallDirCandidates = @($instDirAssignments)
 
+    # SHCTX resolves through the shell context in force when the section
+    # runs: an installer that ever switches to all users while requesting
+    # elevation registers under HKLM.
+    $elevates = ($meta.RequestedExecutionLevel -in 'requireAdministrator', 'highestAvailable')
+    if ($arpRoot -eq 'SHCTX') { $arpRoot = if ($allUsersSeen -and $elevates) { 'HKLM' } else { 'HKCU' } }
+
     # A compile-time InstallDir that is neither a folder constant nor an
     # absolute path is a placeholder the script overwrites at run time; the
-    # StrCpy candidate that matches the ARP hive stands in for it.
+    # StrCpy candidate that matches the elevation model stands in for it.
     $resolvedFromCandidate = $false
     if ($meta.InstallDir -notmatch '^(\$[A-Z]|[A-Za-z]:\\)' -and $instDirAssignments.Count -gt 0) {
+        $machineFolders = '^\$(PROGRAMFILES|COMMONFILES)'
+        $userFolders = '^\$(LOCALAPPDATA|APPDATA|PROFILE)'
         $pick = $null
-        if ($arpRoot -eq 'HKCU') { $pick = $instDirAssignments | Where-Object { $_ -match '^\$(LOCALAPPDATA|APPDATA|PROFILE)' } | Select-Object -First 1 }
-        elseif ($arpRoot -eq 'HKLM') { $pick = $instDirAssignments | Where-Object { $_ -match '^\$(PROGRAMFILES|COMMONFILES)' } | Select-Object -First 1 }
+        if ($elevates -or $arpRoot -eq 'HKLM') { $pick = $instDirAssignments | Where-Object { $_ -match $machineFolders } | Select-Object -First 1 }
+        if (-not $pick) { $pick = $instDirAssignments | Where-Object { $_ -match $userFolders } | Select-Object -First 1 }
         if (-not $pick) { $pick = $instDirAssignments[0] }
         $meta.InstallDir = $pick
         $resolvedFromCandidate = $true
     }
 
     if (-not $uninstallerPath -and $arpValues.ContainsKey('UninstallString')) {
-        $u = [string]$arpValues['UninstallString']
+        $u = & $resolveUserVar ([string]$arpValues['UninstallString'])
         if ($u -match '^\s*"([^"]+\.exe)"' -or $u -match '^\s*(\S+\.exe)') { $uninstallerPath = $Matches[1] }
     }
+    # A relative uninstaller path is written into the current output
+    # folder, which the sections set to $INSTDIR.
+    if ($uninstallerPath -and $uninstallerPath -notmatch '^(\$|[A-Za-z]:\\|\\\\)') { $uninstallerPath = '$INSTDIR\' + $uninstallerPath }
     $meta.UninstallerPath = $uninstallerPath
 
-    $installDirWindows = ConvertTo-NsisWindowsPath -Path $meta.InstallDir -AllUsersContext $allUsers
+    # SetShellVarContext all turns a compile-time user folder into its
+    # all-users counterpart at run time; a user folder picked among the
+    # script's run-time candidates belongs to the per-user branch and
+    # keeps its meaning.
+    $userFolderChosen = ($meta.InstallDir -match '^\$(LOCALAPPDATA|APPDATA|PROFILE|DOCUMENTS|DESKTOP)')
+    $mapAllUsers = $allUsersSeen -and -not ($userFolderChosen -and $resolvedFromCandidate)
+    $meta.ShellVarContext = if ($mapAllUsers) { 'all' } else { 'current' }
+
+    $installDirWindows = ConvertTo-NsisWindowsPath -Path $meta.InstallDir -AllUsersContext $mapAllUsers
     $meta.InstallDirWindows = $installDirWindows
     $installDirResolved = ($installDirWindows -match '^(%[^%]+%|[A-Za-z]:\\)') -and ($installDirWindows -notmatch '\$')
     if ($uninstallerPath) {
-        $meta.UninstallerPathWindows = ConvertTo-NsisWindowsPath -Path $uninstallerPath -InstallDir $installDirWindows -AllUsersContext $allUsers
+        $meta.UninstallerPathWindows = ConvertTo-NsisWindowsPath -Path $uninstallerPath -InstallDir $installDirWindows -AllUsersContext $mapAllUsers
         if ($installDirResolved -and $meta.UninstallerPathWindows -notmatch '\$') {
             $meta.SilentUninstallCommand = '"' + $meta.UninstallerPathWindows + '" /S'
         }
     }
     if ($resolvedFromCandidate) {
-        $meta.Note = 'Install directory is assigned at run time; ' + $instDirAssignments.Count + ' StrCpy $INSTDIR value(s) found, using ' + $meta.InstallDir + '.'
+        $meta.Note = 'Install directory is assigned at run time; using ' + $meta.InstallDir + ' of ' + (@($instDirAssignments) -join ' | ') + '.'
     }
     elseif (-not $installDirResolved -and $meta.InstallDir) {
         $meta.Note = 'Install directory is not resolvable before install: ' + $meta.InstallDir
@@ -2499,11 +2574,13 @@ function Get-NsisMetadata {
         }
     }
 
-    $perUserDir = ($meta.InstallDir -match '^\$(LOCALAPPDATA|APPDATA|PROFILE|DOCUMENTS)\b') -and -not $allUsers
-    if ($arpRoot -eq 'HKCU' -or $perUserDir) { $meta.InstallContext = 'PerUser' }
-    elseif ($arpRoot -eq 'HKLM' -or $meta.InstallDir -match '^\$(PROGRAMFILES|COMMONFILES)') { $meta.InstallContext = 'PerMachine' }
+    # Where the files land decides the context: a Program Files target needs
+    # the machine context even when the script registers under HKCU.
+    if ($meta.InstallDir -match '^\$(PROGRAMFILES|COMMONFILES)' -or $meta.InstallDir -match '^[A-Za-z]:\\') { $meta.InstallContext = 'PerMachine' }
+    elseif ($userFolderChosen) { $meta.InstallContext = 'PerUser' }
+    elseif ($arpRoot -eq 'HKCU') { $meta.InstallContext = 'PerUser' }
+    elseif ($arpRoot -eq 'HKLM' -or $elevates) { $meta.InstallContext = 'PerMachine' }
     elseif ($meta.RequestedExecutionLevel -eq 'asInvoker') { $meta.InstallContext = 'PerUser' }
-    elseif ($meta.RequestedExecutionLevel) { $meta.InstallContext = 'PerMachine' }
 
     return $meta
 }
