@@ -17,7 +17,7 @@
 
 .NOTES
     ScriptName : start-installeranalysis.ps1
-    Version    : 1.3.0.1
+    Version    : 1.3.0.2
     Updated    : 2026-05-20
 #>
 
@@ -755,16 +755,8 @@ function Initialize-BackgroundAnalyzer {
     $initPS.Runspace = $script:BgRunspace
     [void]$initPS.AddScript({
         param($MsiManifestPath, $ModulePath)
-        # A runspace opened inside a Windows PowerShell process that was
-        # launched from PowerShell 7 inherits the 7.x module directories in
-        # PSModulePath ahead of the 5.1 ones; autoloading
-        # Microsoft.PowerShell.Utility from there yields a module without
-        # Get-FileHash. Pin the 5.1 roots before the first cmdlet resolves.
-        $winPsModules = Join-Path $PSHOME 'Modules'
-        $roots = @($env:PSModulePath -split ';' | Where-Object { $_ -and $_ -notmatch '(?i)[\\/]PowerShell[\\/](7[\\/]|Modules)|microsoft\.powershell_' })
-        if ($roots -notcontains $winPsModules) { $roots = @($winPsModules) + $roots }
-        $env:PSModulePath = ($roots -join ';')
-        Import-Module Microsoft.PowerShell.Utility -Force -ErrorAction SilentlyContinue
+        # The process PSModulePath was repaired when SuiteCommon loaded on the
+        # UI thread, so this runspace already resolves the 5.1 module roots.
         if ($MsiManifestPath) {
             try { Import-Module -Name $MsiManifestPath -Force -DisableNameChecking -ErrorAction Stop } catch { $null = $_ }
         }
