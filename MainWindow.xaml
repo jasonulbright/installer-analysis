@@ -160,9 +160,15 @@
                                 ToolTip="Show MSI tables, properties, and product details"/>
                         <Button x:Name="btnViewPayload"  Content="Payload"        Style="{StaticResource ViewButtonStyle}"
                                 ToolTip="Show files embedded inside the installer"/>
+                        <Button x:Name="btnViewFiles"    Content="File Browser"   Style="{StaticResource ViewButtonStyle}"
+                                Visibility="Collapsed"
+                                ToolTip="Browse the listed files as folders and extract selected files or folders with their paths"/>
                         <Button x:Name="btnViewEmbedded" Content="Inner Installers" Style="{StaticResource ViewButtonStyle}"
                                 Visibility="Collapsed"
                                 ToolTip="Show inner MSIs / CABs / EXEs that can themselves be analyzed"/>
+                        <Button x:Name="btnViewRegistry" Content="Registry Settings" Style="{StaticResource ViewButtonStyle}"
+                                Visibility="Collapsed"
+                                ToolTip="Show the registry keys and values the installer writes or removes"/>
                         <Button x:Name="btnViewStrings"  Content="Strings"        Style="{StaticResource ViewButtonStyle}"
                                 ToolTip="Show strings and resources extracted from the installer"/>
 
@@ -405,6 +411,162 @@
                             <DataGridTextColumn Header="Kind"        Width="64"  Binding="{Binding Kind}"/>
                             <DataGridTextColumn Header="Size"        Width="100" Binding="{Binding SizeFormatted}"/>
                             <DataGridTextColumn Header="Description" Width="2*"  Binding="{Binding Description}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+
+                <Grid x:Name="panelFiles" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="0,0,0,6" LastChildFill="True">
+                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                            <Button x:Name="btnFilesUp"
+                                    Content="Up"
+                                    Style="{StaticResource SquareInlineButtonStyle}"
+                                    MinWidth="56"
+                                    ToolTip="Go to the parent folder"/>
+                            <Button x:Name="btnFilesExtractSelected"
+                                    Content="Extract Selected..."
+                                    Style="{StaticResource SquareInlineButtonStyle}"
+                                    ToolTip="Extract the selected files and folders, with their paths, to a folder of your choice"/>
+                            <Button x:Name="btnFilesExtractFolder"
+                                    Content="Extract This Folder..."
+                                    Style="{StaticResource SquareInlineButtonStyle}"
+                                    ToolTip="Extract everything under the current folder, with paths, to a folder of your choice"/>
+                        </StackPanel>
+                        <TextBox x:Name="txtFilesFilter"
+                                 FontSize="12"
+                                 Padding="6,4,6,4"
+                                 MinWidth="180"
+                                 Controls:TextBoxHelper.Watermark="Filter names in this folder..."/>
+                    </DockPanel>
+
+                    <TextBlock x:Name="txtFilesFolder"
+                               Grid.Row="1"
+                               Text="\"
+                               FontFamily="Cascadia Code, Consolas, Courier New"
+                               FontSize="11"
+                               Margin="2,0,0,6"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource MahApps.Brushes.Gray1}"/>
+
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="250" MinWidth="120"/>
+                            <ColumnDefinition Width="5"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TreeView x:Name="treeFiles"
+                                  Grid.Column="0"
+                                  FontSize="12"
+                                  BorderThickness="0"
+                                  Background="{DynamicResource MahApps.Brushes.ThemeBackground}"
+                                  Foreground="{DynamicResource MahApps.Brushes.ThemeForeground}"
+                                  VirtualizingStackPanel.IsVirtualizing="True"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                        <GridSplitter Grid.Column="1"
+                                      Width="5"
+                                      HorizontalAlignment="Stretch"
+                                      VerticalAlignment="Stretch"
+                                      Background="{DynamicResource MahApps.Brushes.Gray8}"/>
+                        <DataGrid x:Name="gridFiles"
+                                  Grid.Column="2"
+                                  Style="{StaticResource ViewDataGrid}">
+                            <DataGrid.ColumnHeaderStyle>
+                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}">
+                                    <Setter Property="Padding" Value="6,0,6,0"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                                </Style>
+                            </DataGrid.ColumnHeaderStyle>
+                            <DataGrid.CellStyle>
+                                <Style TargetType="DataGridCell" BasedOn="{StaticResource MahApps.Styles.DataGridCell}">
+                                    <Setter Property="Padding" Value="6,0,6,0"/>
+                                </Style>
+                            </DataGrid.CellStyle>
+                            <DataGrid.ContextMenu>
+                                <ContextMenu x:Name="ctxFiles">
+                                    <MenuItem x:Name="ctxFilesOpen"        Header="Open folder"/>
+                                    <Separator/>
+                                    <MenuItem x:Name="ctxFilesExtractTo"   Header="Extract to folder..."/>
+                                    <MenuItem x:Name="ctxFilesExtractTemp" Header="Extract to temp folder"/>
+                                    <Separator/>
+                                    <MenuItem x:Name="ctxFilesCopyName"    Header="Copy name"/>
+                                    <MenuItem x:Name="ctxFilesCopyPath"    Header="Copy full path"/>
+                                    <Separator/>
+                                    <MenuItem x:Name="ctxFilesHash"        Header="Hash this entry (SHA-256)"/>
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name"     Width="*"   Binding="{Binding Name}"/>
+                                <DataGridTextColumn Header="Kind"     Width="70"  Binding="{Binding Kind}"/>
+                                <DataGridTextColumn Header="Size"     Width="110" Binding="{Binding Size}"/>
+                                <DataGridTextColumn Header="DateTime" Width="170" Binding="{Binding DateTime}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Grid>
+
+                <Grid x:Name="panelRegistry" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,4" LastChildFill="True">
+                        <Button x:Name="btnRegistryCopyAll"
+                                DockPanel.Dock="Right"
+                                Content="Copy All"
+                                Style="{StaticResource SquareInlineButtonStyle}"
+                                Margin="8,0,0,0"
+                                ToolTip="Copy every listed setting as tab-separated text"/>
+                        <TextBox x:Name="txtRegistryFilter"
+                                 FontSize="12"
+                                 Padding="6,4,6,4"
+                                 Controls:TextBoxHelper.Watermark="Filter by key, name, value or component (case-insensitive)..."/>
+                    </DockPanel>
+                    <TextBlock x:Name="txtRegistryNote"
+                               Grid.Row="1"
+                               Text=""
+                               FontSize="11"
+                               Margin="2,0,0,6"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource MahApps.Brushes.Gray1}"/>
+                    <DataGrid x:Name="gridRegistry"
+                              Grid.Row="2"
+                              Style="{StaticResource ViewDataGrid}">
+                        <DataGrid.ColumnHeaderStyle>
+                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}">
+                                <Setter Property="Padding" Value="6,0,6,0"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                            </Style>
+                        </DataGrid.ColumnHeaderStyle>
+                        <DataGrid.CellStyle>
+                            <Style TargetType="DataGridCell" BasedOn="{StaticResource MahApps.Styles.DataGridCell}">
+                                <Setter Property="Padding" Value="6,0,6,0"/>
+                            </Style>
+                        </DataGrid.CellStyle>
+                        <DataGrid.ContextMenu>
+                            <ContextMenu x:Name="ctxRegistry">
+                                <MenuItem x:Name="ctxRegistryCopyKey"   Header="Copy key path"/>
+                                <MenuItem x:Name="ctxRegistryCopyValue" Header="Copy value"/>
+                                <MenuItem x:Name="ctxRegistryCopyRows"  Header="Copy selected rows"/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Root"    Width="62"  Binding="{Binding Root}"/>
+                            <DataGridTextColumn Header="Key"     Width="3*"  MinWidth="160" Binding="{Binding Key}"/>
+                            <DataGridTextColumn Header="Name"    Width="150" Binding="{Binding Name}"/>
+                            <DataGridTextColumn Header="Type"    Width="110" Binding="{Binding Type}"/>
+                            <DataGridTextColumn Header="Value"   Width="2*"  MinWidth="120" Binding="{Binding Value}"/>
+                            <DataGridTextColumn Header="Action"  Width="120" Binding="{Binding Action}"/>
+                            <DataGridTextColumn Header="Flags"   Width="130" Binding="{Binding Flags}"/>
+                            <DataGridTextColumn Header="View"    Width="105" Binding="{Binding View}"/>
+                            <DataGridTextColumn Header="Section" Width="130" Binding="{Binding Section}"/>
+                            <DataGridTextColumn Header="Source"  Width="105" Binding="{Binding Source}"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>

@@ -17,7 +17,7 @@
 
 .NOTES
     ScriptName : start-installeranalysis.ps1
-    Version    : 1.3.2.0
+    Version    : 1.3.3.0
     Updated    : 2026-05-20
 #>
 
@@ -158,6 +158,8 @@ $btnViewOverview    = $window.FindName('btnViewOverview')
 $btnViewMsi         = $window.FindName('btnViewMsi')
 $btnViewPayload     = $window.FindName('btnViewPayload')
 $btnViewEmbedded    = $window.FindName('btnViewEmbedded')
+$btnViewFiles       = $window.FindName('btnViewFiles')
+$btnViewRegistry    = $window.FindName('btnViewRegistry')
 $btnViewStrings     = $window.FindName('btnViewStrings')
 
 $btnOptions         = $window.FindName('btnOptions')
@@ -185,6 +187,30 @@ $gridPayload        = $window.FindName('gridPayload')
 $panelStrings       = $window.FindName('panelStrings')
 $gridStrings        = $window.FindName('gridStrings')
 $txtStringsFilter   = $window.FindName('txtStringsFilter')
+
+$panelFiles              = $window.FindName('panelFiles')
+$treeFiles               = $window.FindName('treeFiles')
+$gridFiles               = $window.FindName('gridFiles')
+$txtFilesFilter          = $window.FindName('txtFilesFilter')
+$txtFilesFolder          = $window.FindName('txtFilesFolder')
+$btnFilesUp              = $window.FindName('btnFilesUp')
+$btnFilesExtractSelected = $window.FindName('btnFilesExtractSelected')
+$btnFilesExtractFolder   = $window.FindName('btnFilesExtractFolder')
+$ctxFilesOpen            = $window.FindName('ctxFilesOpen')
+$ctxFilesExtractTo       = $window.FindName('ctxFilesExtractTo')
+$ctxFilesExtractTemp     = $window.FindName('ctxFilesExtractTemp')
+$ctxFilesCopyName        = $window.FindName('ctxFilesCopyName')
+$ctxFilesCopyPath        = $window.FindName('ctxFilesCopyPath')
+$ctxFilesHash            = $window.FindName('ctxFilesHash')
+
+$panelRegistry           = $window.FindName('panelRegistry')
+$gridRegistry            = $window.FindName('gridRegistry')
+$txtRegistryFilter       = $window.FindName('txtRegistryFilter')
+$txtRegistryNote         = $window.FindName('txtRegistryNote')
+$btnRegistryCopyAll      = $window.FindName('btnRegistryCopyAll')
+$ctxRegistryCopyKey      = $window.FindName('ctxRegistryCopyKey')
+$ctxRegistryCopyValue    = $window.FindName('ctxRegistryCopyValue')
+$ctxRegistryCopyRows     = $window.FindName('ctxRegistryCopyRows')
 
 $panelEmbedded      = $window.FindName('panelEmbedded')
 $gridEmbedded       = $window.FindName('gridEmbedded')
@@ -261,7 +287,9 @@ $script:ViewButtons = @(
     @{ Name = 'Overview';         Button = $btnViewOverview },
     @{ Name = 'MSI Properties';   Button = $btnViewMsi      },
     @{ Name = 'Payload';          Button = $btnViewPayload  },
+    @{ Name = 'File Browser';     Button = $btnViewFiles    },
     @{ Name = 'Inner Installers'; Button = $btnViewEmbedded },
+    @{ Name = 'Registry Settings'; Button = $btnViewRegistry },
     @{ Name = 'Strings';          Button = $btnViewStrings  }
 )
 
@@ -315,13 +343,15 @@ $script:ViewMeta = @{
     'MSI Properties'   = @{ Title = 'MSI Properties';   Subtitle = 'Full Property table from the MSI. Populated for MSI files or EXE wrappers with an embedded MSI.' }
     'Payload'          = @{ Title = 'Payload';          Subtitle = 'Contents listing via 7-Zip. Populated for EXE-wrapped installers (NSIS, Inno, InstallShield, WiX Burn, SFX).' }
     'Inner Installers' = @{ Title = 'Inner Installers'; Subtitle = 'Installer-class payload entries (MSIs, CABs, EXEs, .nupkg) that can themselves be opened and analyzed. Drill in with Analyze Selected.' }
+    'File Browser'     = @{ Title = 'File Browser';     Subtitle = 'The 7-Zip file listing as folders. Select files or folders and extract them, with their paths, to a folder of your choice.' }
+    'Registry Settings' = @{ Title = 'Registry Settings'; Subtitle = 'Registry keys and values the installer writes or removes: MSI Registry and RemoveRegistry tables, NSIS compiled script (installer and uninstaller), or the Inno Setup [Registry] section. Values keep their variables and constants.' }
     'Strings'          = @{ Title = 'Strings';          Subtitle = 'Categorized interesting strings from the binary -- URLs, registry paths, GUIDs, versions. Filter case-insensitively.' }
 }
 
 function Set-ActiveView {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Updates in-window Visibility + header text only; no external state.')]
     param(
-        [Parameter(Mandatory)][ValidateSet('Overview','MSI Properties','Payload','Inner Installers','Strings')][string]$View
+        [Parameter(Mandatory)][ValidateSet('Overview','MSI Properties','Payload','File Browser','Inner Installers','Registry Settings','Strings')][string]$View
     )
 
     $script:ActiveView = $View
@@ -331,6 +361,8 @@ function Set-ActiveView {
     $gridPayload.Visibility    = if ($View -eq 'Payload')          { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
     $panelEmbedded.Visibility  = if ($View -eq 'Inner Installers') { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
     $panelStrings.Visibility   = if ($View -eq 'Strings')          { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+    $panelFiles.Visibility     = if ($View -eq 'File Browser')     { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+    $panelRegistry.Visibility  = if ($View -eq 'Registry Settings') { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
 
     $meta = $script:ViewMeta[$View]
     if ($meta) {
@@ -346,6 +378,8 @@ $btnViewMsi.Add_Click({      Set-ActiveView -View 'MSI Properties' })
 $btnViewPayload.Add_Click({  Set-ActiveView -View 'Payload' })
 $btnViewEmbedded.Add_Click({ Set-ActiveView -View 'Inner Installers' })
 $btnViewStrings.Add_Click({  Set-ActiveView -View 'Strings' })
+$btnViewFiles.Add_Click({    Set-ActiveView -View 'File Browser' })
+$btnViewRegistry.Add_Click({ Set-ActiveView -View 'Registry Settings' })
 
 # =============================================================================
 # Crash handlers (Dispatcher + AppDomain). Direct-to-file via AppendAllText.
@@ -479,6 +513,275 @@ function Show-StringsGrid {
         $source = @($source | Where-Object { $_.Value -and ([string]$_.Value).ToLowerInvariant().Contains($needle) })
     }
     $gridStrings.ItemsSource = $source
+}
+
+# =============================================================================
+# File Browser: folder index over the 7-Zip file listing, tree + grid.
+# =============================================================================
+$script:FilesIndex = $null
+$script:FilesCurrentFolder = ''
+
+function ConvertTo-FileBrowserIndex {
+    <#
+    .SYNOPSIS
+        Builds a folder index from the listing rows. Folders is a hashtable
+        keyed by folder path ('' is the root) whose values hold Subfolders
+        (names) and Files (listing rows). Every path prefix becomes a
+        folder, so listings without explicit directory entries still nest.
+    #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Pure transform of the file listing.')]
+    param([object[]]$Payload)
+
+    $folders = @{}
+    $ensure = {
+        param([string]$path)
+        if ($folders.ContainsKey($path)) { return }
+        $folders[$path] = @{ Subfolders = (New-Object System.Collections.Generic.HashSet[string]); Files = (New-Object System.Collections.Generic.List[object]) }
+        if ($path) {
+            $cut = $path.LastIndexOf('\')
+            $parent = if ($cut -ge 0) { $path.Substring(0, $cut) } else { '' }
+            $leaf = if ($cut -ge 0) { $path.Substring($cut + 1) } else { $path }
+            & $ensure $parent
+            [void]$folders[$parent].Subfolders.Add($leaf)
+        }
+    }
+    & $ensure ''
+    foreach ($row in @($Payload)) {
+        $name = ([string]$row.Name).Trim().TrimEnd('\', '/').Replace('/', '\')
+        if (-not $name) { continue }
+        if ($row.IsDirectory) { & $ensure $name; continue }
+        $cut = $name.LastIndexOf('\')
+        $folder = if ($cut -ge 0) { $name.Substring(0, $cut) } else { '' }
+        & $ensure $folder
+        $folders[$folder].Files.Add($row)
+    }
+    return @{ Folders = $folders; Count = @($Payload).Count }
+}
+
+function Get-FileBrowserEntriesUnder {
+    <#
+    .SYNOPSIS
+        Returns the in-archive names of every file under a folder path.
+    #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification='Returns the collection of names.')]
+    param([string]$Folder)
+    $names = New-Object System.Collections.Generic.List[string]
+    if (-not $script:FilesIndex) { return @() }
+    $pending = New-Object System.Collections.Generic.Stack[string]
+    $pending.Push($Folder)
+    while ($pending.Count -gt 0) {
+        $current = $pending.Pop()
+        if (-not $script:FilesIndex.Folders.ContainsKey($current)) { continue }
+        $node = $script:FilesIndex.Folders[$current]
+        foreach ($f in $node.Files) { $names.Add([string]$f.Name) }
+        foreach ($sub in $node.Subfolders) { $pending.Push($(if ($current) { $current + '\' + $sub } else { $sub })) }
+    }
+    return @($names)
+}
+
+function New-FileBrowserTreeItem {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Constructs a WPF element.')]
+    param([string]$Path, [string]$Label)
+    $item = New-Object System.Windows.Controls.TreeViewItem
+    $item.Header = $Label
+    $item.Tag = $Path
+    $node = $script:FilesIndex.Folders[$Path]
+    if ($node -and $node.Subfolders.Count -gt 0) {
+        # Children are created on first expansion; the placeholder keeps the expander visible.
+        [void]$item.Items.Add('...')
+        $item.Add_Expanded({
+            param($s, $e)
+            if ($e.OriginalSource -ne $s) { return }
+            if ($s.Items.Count -eq 1 -and $s.Items[0] -is [string]) {
+                $s.Items.Clear()
+                $folder = [string]$s.Tag
+                $subs = @($script:FilesIndex.Folders[$folder].Subfolders | Sort-Object)
+                foreach ($sub in $subs) {
+                    $childPath = if ($folder) { $folder + '\' + $sub } else { $sub }
+                    [void]$s.Items.Add((New-FileBrowserTreeItem -Path $childPath -Label $sub))
+                }
+            }
+        })
+    }
+    return $item
+}
+
+function Show-FileBrowserFolder {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Populates in-window controls only.')]
+    param([string]$Folder = '', [string]$Filter = '')
+
+    if (-not $script:FilesIndex -or -not $script:FilesIndex.Folders.ContainsKey($Folder)) { $Folder = '' }
+    $script:FilesCurrentFolder = $Folder
+    $txtFilesFolder.Text = '\' + $Folder
+    $btnFilesUp.IsEnabled = [bool]$Folder
+    $rows = New-Object System.Collections.Generic.List[object]
+    if ($script:FilesIndex) {
+        $node = $script:FilesIndex.Folders[$Folder]
+        $needle = if ($Filter) { $Filter.ToLowerInvariant() } else { '' }
+        foreach ($sub in @($node.Subfolders | Sort-Object)) {
+            if ($needle -and -not $sub.ToLowerInvariant().Contains($needle)) { continue }
+            $path = if ($Folder) { $Folder + '\' + $sub } else { $sub }
+            $child = $script:FilesIndex.Folders[$path]
+            $rows.Add([pscustomobject]@{
+                Name = $sub; Kind = 'Folder'; Size = ('{0} item(s)' -f ($child.Subfolders.Count + $child.Files.Count)); DateTime = ''
+                Path = $path; IsFolder = $true
+            })
+        }
+        foreach ($f in @($node.Files | Sort-Object { [string]$_.Name })) {
+            $leaf = [System.IO.Path]::GetFileName(([string]$f.Name).Replace('/', '\'))
+            if ($needle -and -not $leaf.ToLowerInvariant().Contains($needle)) { continue }
+            $size = if ($f.PSObject.Properties['SizeFormatted']) { [string]$f.SizeFormatted } else { [string]$f.Size }
+            $when = if ($f.PSObject.Properties['DateTime']) { [string]$f.DateTime } else { '' }
+            $rows.Add([pscustomobject]@{ Name = $leaf; Kind = 'File'; Size = $size; DateTime = $when; Path = [string]$f.Name; IsFolder = $false })
+        }
+    }
+    $gridFiles.ItemsSource = $rows.ToArray()
+}
+
+function Show-FileBrowser {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Populates in-window controls and the nav button only.')]
+    param()
+
+    $treeFiles.Items.Clear()
+    $script:FilesIndex = $null
+    $count = 0
+    if ($script:LastPayload) {
+        $script:FilesIndex = ConvertTo-FileBrowserIndex -Payload @($script:LastPayload)
+        $count = $script:FilesIndex.Count
+        $root = New-FileBrowserTreeItem -Path '' -Label ([System.IO.Path]::GetFileName([string]$txtFilePath.Text))
+        $root.IsSelected = $true
+        [void]$treeFiles.Items.Add($root)
+        $root.IsExpanded = $true
+    }
+    $txtFilesFilter.Text = ''
+    Show-FileBrowserFolder -Folder ''
+    if ($count -gt 0) {
+        $btnViewFiles.Visibility = [System.Windows.Visibility]::Visible
+        $btnViewFiles.Content = ('File Browser ({0})' -f $count)
+    } else {
+        $btnViewFiles.Visibility = [System.Windows.Visibility]::Collapsed
+        $btnViewFiles.Content = 'File Browser'
+    }
+    Update-SidebarButtonTheme
+}
+
+function Get-FileBrowserSelectedNames {
+    <#
+    .SYNOPSIS
+        In-archive names for the selected grid rows; a folder row
+        contributes every file under it.
+    #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification='Returns the collection of names.')]
+    param()
+    $names = New-Object System.Collections.Generic.List[string]
+    foreach ($row in @($gridFiles.SelectedItems)) {
+        if ($row.IsFolder) { foreach ($n in (Get-FileBrowserEntriesUnder -Folder ([string]$row.Path))) { $names.Add($n) } }
+        else { $names.Add([string]$row.Path) }
+    }
+    return @($names | Select-Object -Unique)
+}
+
+function Confirm-ExtractTargetFolder {
+    <#
+    .SYNOPSIS
+        Folder picker plus a warning when the chosen folder already holds
+        files; returns the folder or $null.
+    #>
+    param([Parameter(Mandatory)][string]$Description)
+    Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+    $fbd = New-Object System.Windows.Forms.FolderBrowserDialog
+    $fbd.Description = $Description
+    $fbd.ShowNewFolderButton = $true
+    if ($fbd.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { return $null }
+    $target = $fbd.SelectedPath
+    $existingCount = 0
+    try { $existingCount = @(Get-ChildItem -LiteralPath $target -Force -ErrorAction Stop).Count } catch { $null = $_ }
+    if ($existingCount -gt 0) {
+        $ans = Show-ThemedMessage -Owner $window `
+            -Title   'Target folder is not empty' `
+            -Message ('"{0}" already contains {1} item(s). Extracting may overwrite files with the same names. Continue?' -f $target, $existingCount) `
+            -Buttons 'YesNo' -Icon 'Warn'
+        if ($ans -ne 'Yes') { return $null }
+    }
+    return $target
+}
+
+function Invoke-FileBrowserExtract {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Extracts to a folder the user picked; the picker confirms non-empty targets.')]
+    param([string[]]$Names, [string]$Target, [string]$What)
+
+    if (-not $Names -or $Names.Count -eq 0) { Add-LogLine ('Extract {0}: nothing selected.' -f $What); return }
+    if (-not $script:LastFileInfo) { Add-LogLine ('Extract {0}: no analysis result yet.' -f $What); return }
+    $sevenZip = $global:Prefs['SevenZipPath']
+    if (-not $sevenZip -or -not (Test-Path -LiteralPath $sevenZip)) { $sevenZip = Find-7ZipPath }
+    if (-not $sevenZip) { Add-LogLine ('Extract {0}: 7z.exe not found.' -f $What); return }
+
+    $txtProgressTitle.Text = 'Extracting files...'
+    $txtProgressStep.Text  = ('{0} entr{1} -> {2}' -f $Names.Count, $(if ($Names.Count -eq 1) { 'y' } else { 'ies' }), $Target)
+    $progressOverlay.Visibility = [System.Windows.Visibility]::Visible
+    $window.Dispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Render)
+    try {
+        $code = Expand-InstallerEntries -Path $script:LastFileInfo.FullPath -EntryName $Names -OutputPath $Target -SevenZipPath $sevenZip
+        if ($code -eq 0) {
+            Add-LogLine ('Extract {0}: {1} entries -> {2}' -f $What, $Names.Count, $Target)
+            Set-StatusText ('Extracted {0} entries to {1}' -f $Names.Count, $Target)
+        } else {
+            Add-LogLine ('Extract {0}: 7z exit code {1} ({2} entries -> {3}); see the 7-Zip output above.' -f $What, $code, $Names.Count, $Target)
+            Set-StatusText ('Extraction finished with 7z exit code {0}.' -f $code)
+        }
+    } catch {
+        Add-LogLine ('Extract {0} failed: {1}' -f $What, $_.Exception.Message)
+    } finally {
+        $progressOverlay.Visibility = [System.Windows.Visibility]::Collapsed
+    }
+}
+
+# =============================================================================
+# Registry Settings view.
+# =============================================================================
+$script:LastRegistry = $null
+
+function Show-RegistryGrid {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Populates in-window controls and the nav button only.')]
+    param([string]$Filter = '')
+
+    $entries = @()
+    $note = ''
+    $supported = $false
+    if ($script:LastRegistry) {
+        $entries = @($script:LastRegistry.Entries)
+        $note = [string]$script:LastRegistry.Note
+        $supported = ([string]$script:LastRegistry.Format -in 'MSI', 'NSIS', 'InnoSetup')
+    }
+    if ($Filter) {
+        $needle = $Filter.ToLowerInvariant()
+        $entries = @($entries | Where-Object {
+            (([string]$_.Key + ' ' + [string]$_.Name + ' ' + [string]$_.Value + ' ' + [string]$_.Section + ' ' + [string]$_.Root).ToLowerInvariant()).Contains($needle)
+        })
+    }
+    $gridRegistry.ItemsSource = $entries
+    $total = if ($script:LastRegistry) { @($script:LastRegistry.Entries).Count } else { 0 }
+    $txtRegistryNote.Text = if ($note) { $note }
+                            elseif ($total -eq 0 -and $supported) { 'No registry settings are compiled into this installer.' }
+                            elseif ($Filter) { ('{0} of {1} settings match.' -f $entries.Count, $total) }
+                            else { '' }
+    if ($supported) {
+        $btnViewRegistry.Visibility = [System.Windows.Visibility]::Visible
+        $btnViewRegistry.Content = if ($total -gt 0) { ('Registry Settings ({0})' -f $total) } else { 'Registry Settings' }
+    } else {
+        $btnViewRegistry.Visibility = [System.Windows.Visibility]::Collapsed
+        $btnViewRegistry.Content = 'Registry Settings'
+    }
+    Update-SidebarButtonTheme
+}
+
+function ConvertTo-RegistryRowText {
+    param([object[]]$Rows)
+    $lines = foreach ($r in @($Rows)) {
+        $keyPath = if ($r.Key) { [string]$r.Root + '\' + [string]$r.Key } else { [string]$r.Root }
+        (@($keyPath, [string]$r.Name, [string]$r.Type, [string]$r.Value, [string]$r.Action, [string]$r.Flags, [string]$r.View, [string]$r.Section, [string]$r.Source) -join "`t")
+    }
+    return (@($lines) -join [Environment]::NewLine)
 }
 
 function Set-ActionBarVisible {
@@ -649,6 +952,7 @@ function Push-AnalysisStack {
         MspMetadata           = $script:LastMspMetadata
         InnerMsiData          = $script:LastInnerMsiData
         InterestingStrings    = $script:LastInterestingStrings
+        Registry              = $script:LastRegistry
         ActiveView            = $script:ActiveView
     }
     $script:AnalysisStack.Push($frame)
@@ -674,12 +978,15 @@ function Pop-AnalysisStack {
     $script:LastMspMetadata        = $f.MspMetadata
     $script:LastInnerMsiData       = $f.InnerMsiData
     $script:LastInterestingStrings = $f.InterestingStrings
+    $script:LastRegistry           = $f.Registry
 
     Show-OverviewText
     Show-MsiPropertiesGrid
     Show-PayloadGrid
     Show-EmbeddedGrid
     Show-StringsGrid -Filter $txtStringsFilter.Text
+    Show-FileBrowser
+    Show-RegistryGrid -Filter $txtRegistryFilter.Text
     Set-ActionBarVisible -Analyzed:$true -HasPayload:([bool]$script:LastPayload)
 
     $restoredView = if ($f.ActiveView) { [string]$f.ActiveView } else { 'Overview' }
@@ -924,6 +1231,15 @@ function Invoke-AnalysisPipeline {
                 }
             }
 
+            $State.Step = 'Reading registry settings...'
+            $registry = $null
+            try {
+                $regTemp = Join-Path $env:LOCALAPPDATA ('InstallerAnalysis\Temp\reg\' + ([string]$fi.SHA256).Substring(0, [Math]::Min(16, ([string]$fi.SHA256).Length)))
+                $registry = Get-InstallerRegistrySettings -Path $Path -InstallerType $type -PackageMetadata $pkg -Payload $payload -SevenZipPath $SevenZipPath -TempDir $regTemp
+            } catch {
+                $registry = [PSCustomObject]@{ Format = $type; Entries = @(); Note = 'Registry settings could not be read: ' + $_.Exception.Message }
+            }
+
             $State.Step = 'Scanning interesting strings (URLs, GUIDs, registry paths)...'
             $interesting = $null
             try { $interesting = Get-InterestingStrings -Path $Path } catch { $null = $_ }
@@ -940,6 +1256,7 @@ function Invoke-AnalysisPipeline {
                 MspMetadata     = $mspMetadataList
                 InnerMsiData    = $innerMsiData
                 Interesting     = $interesting
+                Registry        = $registry
             }
         }
         catch {
@@ -981,11 +1298,17 @@ function Invoke-AnalysisPipeline {
                 $script:LastMspMetadata        = $null
                 $script:LastInnerMsiData       = $null
                 $script:LastInterestingStrings = $null
+                $script:LastRegistry           = $null
                 $txtOverview.Text = 'Analyze failed. Check the log drawer below for details.'
                 $gridMsi.ItemsSource      = @()
                 $gridPayload.ItemsSource  = @()
                 $gridEmbedded.ItemsSource = @()
                 $gridStrings.ItemsSource  = @()
+                $gridRegistry.ItemsSource = @()
+                $gridFiles.ItemsSource    = @()
+                $treeFiles.Items.Clear()
+                $btnViewFiles.Visibility    = [System.Windows.Visibility]::Collapsed
+                $btnViewRegistry.Visibility = [System.Windows.Visibility]::Collapsed
                 $btnViewEmbedded.Visibility = [System.Windows.Visibility]::Collapsed
                 Set-ActionBarVisible -Analyzed:$false -HasPayload:$false
                 Set-StatusText 'Analyze failed.'
@@ -1003,12 +1326,15 @@ function Invoke-AnalysisPipeline {
                 $script:LastMspMetadata        = $r.MspMetadata
                 $script:LastInnerMsiData       = $r.InnerMsiData
                 $script:LastInterestingStrings = ConvertTo-StringsGridRows -Interesting $r.Interesting
+                $script:LastRegistry           = $r.Registry
 
                 Show-OverviewText
                 Show-MsiPropertiesGrid
                 Show-PayloadGrid
                 Show-EmbeddedGrid
                 Show-StringsGrid -Filter $txtStringsFilter.Text
+                Show-FileBrowser
+                Show-RegistryGrid -Filter $txtRegistryFilter.Text
                 Set-ActionBarVisible -Analyzed:$true -HasPayload:([bool]$script:LastPayload)
                 Update-BreadcrumbBar
 
@@ -1017,6 +1343,8 @@ function Invoke-AnalysisPipeline {
                     'MSI Properties'   { [bool]$script:LastMsiProperties -and $script:LastMsiProperties.Count -gt 0 }
                     'Payload'          { [bool]$script:LastPayload }
                     'Inner Installers' { ($script:LastEmbedded -and @($script:LastEmbedded).Count -gt 0) }
+                    'File Browser'     { [bool]$script:LastPayload }
+                    'Registry Settings' { ($script:LastRegistry -and [string]$script:LastRegistry.Format -in 'MSI', 'NSIS', 'InnoSetup') }
                     'Strings'          { [bool]$script:LastInterestingStrings }
                     default            { $true }
                 }
@@ -1872,10 +2200,107 @@ $rightClickSelectsRow = {
 }
 $gridPayload.Add_PreviewMouseRightButtonDown($rightClickSelectsRow)
 $gridEmbedded.Add_PreviewMouseRightButtonDown($rightClickSelectsRow)
+$gridFiles.Add_PreviewMouseRightButtonDown($rightClickSelectsRow)
+$gridRegistry.Add_PreviewMouseRightButtonDown($rightClickSelectsRow)
 
 $btnOpenInNewWindow.Add_Click({
     $sel = $gridEmbedded.SelectedItem
     Open-EmbeddedInNewWindow -Entry $sel
+})
+
+# ---- File Browser ----
+$treeFiles.Add_SelectedItemChanged({
+    $sel = $treeFiles.SelectedItem
+    if ($sel -is [System.Windows.Controls.TreeViewItem]) { Show-FileBrowserFolder -Folder ([string]$sel.Tag) -Filter $txtFilesFilter.Text }
+})
+$txtFilesFilter.Add_TextChanged({ Show-FileBrowserFolder -Folder $script:FilesCurrentFolder -Filter $txtFilesFilter.Text })
+$btnFilesUp.Add_Click({
+    $folder = $script:FilesCurrentFolder
+    if (-not $folder) { return }
+    $cut = $folder.LastIndexOf('\')
+    Show-FileBrowserFolder -Folder $(if ($cut -ge 0) { $folder.Substring(0, $cut) } else { '' }) -Filter $txtFilesFilter.Text
+})
+$openFolderRow = {
+    $row = $gridFiles.SelectedItem
+    if ($row -and $row.IsFolder) { Show-FileBrowserFolder -Folder ([string]$row.Path) -Filter $txtFilesFilter.Text }
+}
+$gridFiles.Add_MouseDoubleClick($openFolderRow)
+$ctxFilesOpen.Add_Click($openFolderRow)
+$gridFiles.Add_PreviewKeyDown({
+    param($s, $e)
+    $null = $s
+    if ($e.Key -eq [System.Windows.Input.Key]::Return) { & $openFolderRow; $e.Handled = $true }
+    elseif ($e.Key -eq [System.Windows.Input.Key]::Back) { $btnFilesUp.RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Button]::ClickEvent))); $e.Handled = $true }
+})
+$btnFilesExtractSelected.Add_Click({
+    $names = Get-FileBrowserSelectedNames
+    if ($names.Count -eq 0) { Add-LogLine 'Extract Selected: no rows selected.'; return }
+    $target = Confirm-ExtractTargetFolder -Description ('Choose a folder for the {0} selected entr{1}.' -f $names.Count, $(if ($names.Count -eq 1) { 'y' } else { 'ies' }))
+    if ($target) { Invoke-FileBrowserExtract -Names $names -Target $target -What 'Selected' }
+})
+$ctxFilesExtractTo.Add_Click({
+    $names = Get-FileBrowserSelectedNames
+    if ($names.Count -eq 0) { Add-LogLine 'Extract to folder: no rows selected.'; return }
+    $target = Confirm-ExtractTargetFolder -Description ('Choose a folder for the {0} selected entr{1}.' -f $names.Count, $(if ($names.Count -eq 1) { 'y' } else { 'ies' }))
+    if ($target) { Invoke-FileBrowserExtract -Names $names -Target $target -What 'Selected' }
+})
+$btnFilesExtractFolder.Add_Click({
+    $names = @(Get-FileBrowserEntriesUnder -Folder $script:FilesCurrentFolder)
+    if ($names.Count -eq 0) { Add-LogLine 'Extract This Folder: the current folder has no files.'; return }
+    $label = if ($script:FilesCurrentFolder) { $script:FilesCurrentFolder } else { 'every listed file' }
+    $target = Confirm-ExtractTargetFolder -Description ('Choose a folder for {0} ({1} files).' -f $label, $names.Count)
+    if ($target) { Invoke-FileBrowserExtract -Names $names -Target $target -What 'Folder' }
+})
+$ctxFilesExtractTemp.Add_Click({
+    $names = Get-FileBrowserSelectedNames
+    if ($names.Count -eq 0) { Add-LogLine 'Extract to temp: no rows selected.'; return }
+    if (-not $script:LastFileInfo) { return }
+    $dir = Get-InspectTempDir -Sha256 ([string]$script:LastFileInfo.SHA256)
+    Invoke-FileBrowserExtract -Names $names -Target $dir -What 'to temp'
+    try { Start-Process explorer.exe $dir } catch { $null = $_ }
+})
+$ctxFilesCopyName.Add_Click({
+    $rows = @($gridFiles.SelectedItems)
+    if ($rows.Count -eq 0) { return }
+    Set-Clipboard -Value (@($rows | ForEach-Object { [string]$_.Name }) -join [Environment]::NewLine)
+    Set-StatusText ('Copied {0} name(s).' -f $rows.Count)
+})
+$ctxFilesCopyPath.Add_Click({
+    $rows = @($gridFiles.SelectedItems)
+    if ($rows.Count -eq 0) { return }
+    Set-Clipboard -Value (@($rows | ForEach-Object { [string]$_.Path }) -join [Environment]::NewLine)
+    Set-StatusText ('Copied {0} path(s).' -f $rows.Count)
+})
+$ctxFilesHash.Add_Click({
+    $rows = @($gridFiles.SelectedItems | Where-Object { -not $_.IsFolder })
+    if ($rows.Count -eq 0) { Add-LogLine 'Hash: select one or more files.'; return }
+    Invoke-PayloadHash -Entries @($rows | ForEach-Object { [pscustomobject]@{ Name = [string]$_.Path } })
+})
+
+# ---- Registry Settings ----
+$txtRegistryFilter.Add_TextChanged({ Show-RegistryGrid -Filter $txtRegistryFilter.Text })
+$btnRegistryCopyAll.Add_Click({
+    if (-not $script:LastRegistry -or @($script:LastRegistry.Entries).Count -eq 0) { Add-LogLine 'Copy All: no registry settings listed.'; return }
+    Set-Clipboard -Value (ConvertTo-RegistryRowText -Rows @($script:LastRegistry.Entries))
+    Set-StatusText ('Copied {0} registry settings.' -f @($script:LastRegistry.Entries).Count)
+})
+$ctxRegistryCopyKey.Add_Click({
+    $rows = @($gridRegistry.SelectedItems)
+    if ($rows.Count -eq 0) { return }
+    Set-Clipboard -Value (@($rows | ForEach-Object { if ($_.Key) { [string]$_.Root + '\' + [string]$_.Key } else { [string]$_.Root } } | Select-Object -Unique) -join [Environment]::NewLine)
+    Set-StatusText 'Key path copied.'
+})
+$ctxRegistryCopyValue.Add_Click({
+    $rows = @($gridRegistry.SelectedItems)
+    if ($rows.Count -eq 0) { return }
+    Set-Clipboard -Value (@($rows | ForEach-Object { [string]$_.Value }) -join [Environment]::NewLine)
+    Set-StatusText 'Value copied.'
+})
+$ctxRegistryCopyRows.Add_Click({
+    $rows = @($gridRegistry.SelectedItems)
+    if ($rows.Count -eq 0) { return }
+    Set-Clipboard -Value (ConvertTo-RegistryRowText -Rows $rows)
+    Set-StatusText ('Copied {0} row(s).' -f $rows.Count)
 })
 
 # ---- Breadcrumb ----
