@@ -37,7 +37,7 @@ per-function precedent map.
 | Classic EXE     | NSIS, Inno Setup, InstallShield, WiX Burn, 7-Zip SFX, BitRock      |
 | MSI family      | MSI, MSP (Windows Installer Patch)                                 |
 | Modern packages | MSIX / APPX (+ bundles), `.intunewin`, Chocolatey / NuGet `.nupkg` |
-| Script wrappers | PSAppDeployToolkit v3 + v4, Squirrel / Electron                    |
+| Script wrappers | PSAppDeployToolkit v3 + v4, Squirrel / Electron, Velopack          |
 
 Type detection is binary-signature + ZIP-layout driven, not extension-
 guessing.
@@ -99,6 +99,13 @@ Every analysis surfaces:
   `PrivilegesRequiredOverridesAllowed` includes the command line, the
   `/ALLUSERS` and `/CURRENTUSER` branches are both reported as install
   modes with their own folder, key, hive and uninstall command.
+- **Velopack setup packages** — read the embedded nuspec for the package
+  ID, title, full package version and application architecture. Report
+  `--silent` (alias `-s`), the default per-user install folder, the
+  `Update.exe --uninstall --silent` command and the HKCU uninstall key.
+  The ARP DisplayVersion uses `major.minor.patch`; the full version,
+  including prerelease/build labels, remains in package metadata.
+  Metadata reads do not require 7-Zip or extraction.
 - **Effective post-patch detection target** — for outer files that
   contain a base MSI plus a cumulative MSP (Adobe Reader, Office, most
   enterprise vendors), the analyzer combines the inner MSI's ProductCode
