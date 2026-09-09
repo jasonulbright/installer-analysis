@@ -303,6 +303,159 @@ Describe 'Get-ZipRootEntryByPattern' {
 }
 
 # ============================================================================
+# Velopack detection + embedded metadata
+# ============================================================================
+
+Describe 'Velopack Setup analysis' {
+    BeforeAll {
+        function script:New-VelopackTestInstaller {
+            param(
+                [string]$Path,
+                [string]$Nuspec = '<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd"><metadata><id>Sample.Desktop</id><title>Sample Desktop</title><version>26.8.1-build.100</version><authors>Sample Vendor</authors><mainExe>Sample.exe</mainExe><machineArchitecture>x64</machineArchitecture><channel>win</channel></metadata></package>',
+                [int]$ZipOffset = 8192,
+                [switch]$NoManifest
+            )
+            $zipPath = $Path + '.zip'
+            $entries = @{ 'Update.exe' = [byte[]](0x4D,0x5A) }
+            if (-not $NoManifest) { $entries['Sample.Desktop.nuspec'] = $Nuspec }
+            New-TestZipFile -Path $zipPath -Entries $entries
+            $package = [IO.File]::ReadAllBytes($zipPath)
+            $stub = New-Object byte[] $ZipOffset
+            $stub[0] = 0x4D; $stub[1] = 0x5A
+            # Lifecycle markers are intentionally present: Velopack must win
+            # over the Squirrel compatibility strings that its payload may carry.
+            $compatibility = [Text.Encoding]::ASCII.GetBytes('SquirrelTemp squirrel-install Update.exe')
+            [Array]::Copy($compatibility, 0, $stub, 80, $compatibility.Length)
+            [Array]::Copy([BitConverter]::GetBytes([long]$ZipOffset), 0, $stub, 256, 8)
+            [Array]::Copy([BitConverter]::GetBytes([long]$package.Length), 0, $stub, 264, 8)
+            $signature = [byte[]]@(
+                0x94,0xf0,0xb1,0x7b,0x68,0x93,0xe0,0x29,0x37,0xeb,0x34,0xef,0x53,0xaa,0xe7,0xd4,
+                0x2b,0x54,0xf5,0x70,0x7e,0xf5,0xd6,0xf5,0x78,0x54,0x98,0x3e,0x5e,0x94,0xed,0x7d
+            )
+            [Array]::Copy($signature, 0, $stub, 272, $signature.Length)
+            $stream = [IO.File]::Create($Path)
+            try {
+                $stream.Write($stub, 0, $stub.Length)
+                $stream.Write($package, 0, $package.Length)
+                # Simulates a signed EXE with data after the ZIP, beyond the
+                # ordinary ZIP end-directory search window. It must be excluded.
+                $tail = New-Object byte[] 70KB
+                $stream.Write($tail, 0, $tail.Length)
+            } finally { $stream.Dispose() }
+            return $Path
+        }
+    }
+
+    It 'detects a renamed setup ahead of Squirrel compatibility markers' {
+        $p = New-VelopackTestInstaller -Path (Join-Path $TestDrive 'renamed.exe')
+        Get-InstallerType -Path $p | Should -Be 'Velopack'
+    }
+
+    It 'does not classify an app or updater just because it mentions Velopack' {
+        $p = Join-Path $TestDrive 'DraftableDesktopSetup.exe'
+        [IO.File]::WriteAllText($p, 'MZ Velopack velopack::bundle Update.exe --silent')
+        Get-InstallerType -Path $p | Should -Be 'Unknown'
+    }
+
+    It 'reads a package beyond the scan window and ignores trailing signature data' {
+        $p = New-VelopackTestInstaller -Path (Join-Path $TestDrive 'large-stub.exe') -ZipOffset (4MB + 512)
+        $m = Get-PackageMetadataFor -Path $p -InstallerType (Get-InstallerType -Path $p)
+        $m.HeaderAvailable | Should -BeTrue
+        $m.DisplayName | Should -Be 'Sample Desktop'
+        $m.DisplayVersion | Should -Be '26.8.1'
+        $m.PackageVersion | Should -Be '26.8.1-build.100'
+        $m.Publisher | Should -Be 'Sample Vendor'
+        $m.Architecture | Should -Be 'x64'
+        $m.ProductCodeOrEquivalent | Should -Be 'Sample.Desktop'
+        $m.MainExe | Should -Be 'Sample.exe'
+        $m.InstallDir | Should -Be '%LOCALAPPDATA%\Sample.Desktop'
+        $m.UninstallRegistryKey | Should -Be 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Sample.Desktop'
+        $m.Nuspec['channel'] | Should -Be 'win'
+        # Mappings and entry streams must not keep the installer locked.
+        $exclusive = [IO.File]::Open($p, 'Open', 'ReadWrite', 'None')
+        $exclusive.Dispose()
+    }
+
+    It 'carries commands, app architecture and ARP version through summary and JSON' {
+        $p = New-VelopackTestInstaller -Path (Join-Path $TestDrive 'renamed setup.exe')
+        $m = Get-VelopackMetadata -Path $p
+        $fi = [PSCustomObject]@{
+            FileName = 'renamed setup.exe'; ProductName = 'Setup stub'; ProductVersion = '26.8.1-build.100'
+            CompanyName = 'Stub vendor'; Architecture = 'x86'; FileSize = 1MB
+            FileSizeFormatted = '1 MB'; SHA256 = 'X'; SignatureStatus = 'Valid'; SignerSubject = ''
+        }
+        $sw = Get-SilentSwitches -InstallerType 'Velopack' -FilePath $p -PackageMetadata $m
+        $sw.Install | Should -Be '"renamed setup.exe" --silent'
+        $sw.Notes | Should -Match '--silent or -s'
+        $sw.Uninstall | Should -Be '"%LOCALAPPDATA%\Sample.Desktop\Update.exe" --uninstall --silent'
+        $df = Get-DeploymentFields -FileInfo $fi -Switches $sw -PackageMetadata $m -InstallerType 'Velopack'
+        $summary = New-AnalysisSummaryText -FileInfo $fi -InstallerType 'Velopack' -Switches $sw -DeploymentFields $df -PackageMetadata $m
+        $summary | Should -Match 'Package Metadata \(Velopack Setup.exe\)'
+        $summary | Should -Match 'App Architecture:\s+x64'
+        $summary | Should -Match 'Package Version:\s+26\.8\.1-build\.100'
+        $json = ConvertTo-DeploymentJson -FileInfo $fi -InstallerType 'Velopack' -Switches $sw -DeploymentFields $df -PackageMetadata $m | ConvertFrom-Json
+        $json.Application.DisplayName | Should -Be 'Sample Desktop'
+        $json.Application.DisplayVersion | Should -Be '26.8.1'
+        $json.Application.Architecture | Should -Be 'x64'
+        $json.Deployment.InstallCommand | Should -Be $sw.Install
+        $json.Deployment.UninstallCommand | Should -Be $sw.Uninstall
+        $json.Detection.UninstallRegistryKey | Should -Be $m.UninstallRegistryKey
+        $json.Raw.PackageMetadata.PackageVersion | Should -Be '26.8.1-build.100'
+    }
+
+    It 'uses the package id when the title is absent, with a namespace-free nuspec' {
+        $p = New-VelopackTestInstaller -Path (Join-Path $TestDrive 'minimal.exe') -Nuspec '<package><metadata><id>OtherApp</id><version>1.2.3+build.9</version><mainExe>Other.exe</mainExe></metadata></package>'
+        $m = Get-VelopackMetadata -Path $p
+        $m.HeaderAvailable | Should -BeTrue
+        $m.DisplayName | Should -Be 'OtherApp'
+        $m.DisplayVersion | Should -Be '1.2.3'
+    }
+
+    It 'keeps silent install support but omits deployment guesses for a damaged <Field>' -TestCases @(
+        @{ Field = 'offset'; Position = 256; Value = [long]::MaxValue }
+        @{ Field = 'negative offset'; Position = 256; Value = -1L }
+        @{ Field = 'length'; Position = 264; Value = [long]::MaxValue }
+        @{ Field = 'empty package'; Position = 264; Value = 0L }
+    ) {
+        param($Field, $Position, $Value)
+        $p = New-VelopackTestInstaller -Path (Join-Path $TestDrive ($Field + '.exe'))
+        $stream = [IO.File]::OpenWrite($p)
+        try { $stream.Position = $Position; $stream.Write([BitConverter]::GetBytes([long]$Value), 0, 8) } finally { $stream.Dispose() }
+        Get-InstallerType -Path $p | Should -Be 'Velopack'
+        $m = Get-VelopackMetadata -Path $p
+        $m.HeaderAvailable | Should -BeFalse
+        $m.Note | Should -Match 'outside the file|missing'
+        $m.SilentUninstallCommand | Should -BeNullOrEmpty
+        Get-UninstallRegistryKey -InstallerType 'Velopack' -PackageMetadata $m | Should -BeNullOrEmpty
+        $sw = Get-SilentSwitches -InstallerType 'Velopack' -FilePath $p -PackageMetadata $m
+        $sw.Install | Should -Match '--silent$'
+        $sw.Uninstall | Should -BeNullOrEmpty
+    }
+
+    It 'reports a missing manifest without inventing an app id' {
+        $p = New-VelopackTestInstaller -Path (Join-Path $TestDrive 'no-manifest.exe') -NoManifest
+        $m = Get-VelopackMetadata -Path $p
+        $m.HeaderAvailable | Should -BeFalse
+        $m.Note | Should -Match 'nuspec'
+        $m.UninstallRegistryKey | Should -BeNullOrEmpty
+    }
+
+    It 'rejects invalid XML and invalid package ids without producing commands' -TestCases @(
+        @{ Nuspec = '<package' }
+        @{ Nuspec = '<package><metadata><id>../App</id><version>1.2.3</version></metadata></package>' }
+        @{ Nuspec = '<!DOCTYPE package [<!ENTITY id "App">]><package><metadata><id>&id;</id><version>1.2.3</version></metadata></package>' }
+    ) {
+        param($Nuspec)
+        $p = New-VelopackTestInstaller -Path (Join-Path $TestDrive 'bad-manifest.exe') -Nuspec $Nuspec
+        $m = Get-VelopackMetadata -Path $p
+        $m.HeaderAvailable | Should -BeFalse
+        $m.Note | Should -Match 'metadata unavailable'
+        $m.UninstallRegistryKey | Should -BeNullOrEmpty
+        $m.SilentUninstallCommand | Should -BeNullOrEmpty
+    }
+}
+
+# ============================================================================
 # Chocolatey / NuGet detection + metadata
 # ============================================================================
 
@@ -1171,7 +1324,10 @@ Describe 'Get-SilentSwitchDatabase' {
         $db = Get-SilentSwitchDatabase
         foreach ($key in $db.Keys) {
             $db[$key].Install | Should -Not -BeNullOrEmpty
-            $db[$key].Uninstall | Should -Not -BeNullOrEmpty
+            # Formats that need a package id may leave uninstall blank until
+            # metadata is available; they must still expose the string field.
+            $db[$key].ContainsKey('Uninstall') | Should -BeTrue
+            $db[$key].Uninstall | Should -BeOfType [string]
             $db[$key].Notes | Should -Not -BeNullOrEmpty
         }
     }

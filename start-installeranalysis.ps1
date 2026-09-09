@@ -17,8 +17,8 @@
 
 .NOTES
     ScriptName : start-installeranalysis.ps1
-    Version    : 1.3.3.0
-    Updated    : 2026-05-20
+    Version    : 1.3.4.0
+    Updated    : 2026-09-09
 #>
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '', Justification='Flat-.ps1 GetNewClosure strips $script: access; $global: survives closure scope-strip and keeps shared mutable state (Prefs, PrefsPath, crash log scriptblock) reachable from closure-captured handlers.')]
@@ -1530,7 +1530,7 @@ function New-AboutPanel {
         @{ K = 'Version';    V = ('v' + $script:AppVersion) },
         @{ K = 'Author';     V = 'Jason Ulbright' },
         @{ K = 'License';    V = 'MIT' },
-        @{ K = 'Formats';    V = '17 detected types -- MSI, NSIS, Inno Setup, InstallShield, WiX Burn, Advanced Installer, 7zSFX, WinRAR SFX, Chocolatey, NuGet, Intunewin, MSIX, MSIX Bundle, PSADT v3, PSADT v4, Squirrel, Unknown' },
+        @{ K = 'Formats';    V = 'MSI, MSP, NSIS, Inno Setup, InstallShield, WiX Burn, Advanced Installer, BitRock, 7zSFX, WinRAR SFX, Chocolatey, NuGet, Intunewin, MSIX, MSIX Bundle, PSADT v3, PSADT v4, Squirrel, Velopack' },
         @{ K = 'Offline';    V = 'No NuGet, no runtime network pulls. MahApps.Metro / ControlzEx / Xaml.Behaviors vendored under Lib/.' },
         @{ K = 'Repository'; V = 'https://github.com/jasonulbright/installer-analysis' }
     )

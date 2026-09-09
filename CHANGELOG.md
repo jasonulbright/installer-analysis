@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.4.0] - 2026-09-09
+
+### Added
+
+- Detect Velopack Setup.exe installers, including Draftable Desktop Setup,
+  and report `--silent` / `-s` install support.
+- Read Velopack's embedded nuspec for application metadata, the default
+  per-user uninstall command and HKCU detection key. Preserve the full
+  package version separately from the shorter ARP DisplayVersion.
+
+### Fixed
+
+- Use the Velopack application's architecture in deployment JSON when it
+  differs from the setup launcher's architecture.
+
 ## [1.3.3.0] - 2026-09-04
 
 ### Changed
