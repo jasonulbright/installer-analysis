@@ -6,8 +6,8 @@
 [![License](https://img.shields.io/github/license/jasonulbright/installer-analysis)](LICENSE)
 
 Inspect a Windows installer and pull out the deployment data needed to
-package it for MECM, Intune, or Chocolatey — in one pass, with no admin
-rights, no network, and no MECM connection.
+package it for Configuration Manager, Intune, or Chocolatey — in one pass, with no admin
+rights, no network, and no Configuration Manager connection.
 
 ![Installer Analysis](screenshots/screenshot.png)
 
@@ -136,7 +136,7 @@ adds Copy path, Open enclosing folder, and Re-analyze.
 
 - **Copy Summary** — clipboard, plain text, paste-ready for a ticket
   or change record.
-- **Copy JSON** — clipboard, MECM-ready JSON digest with detection
+- **Copy JSON** — clipboard, ConfigMgr-ready JSON digest with detection
   hints keyed to installer type.
 - **Export CSV** / **Export HTML** — file output of the full analysis
   table.
