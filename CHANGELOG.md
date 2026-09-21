@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026.09.21.0013] - 2026-09-21
+
+### Changed
+
+- Correct the branch name in the release procedure.
+
 ## [2026.09.21.0012] - 2026-09-21
 
 ### Changed

@@ -30,7 +30,7 @@ C:\projects\app-packager-suite\sync-suitecommon.ps1 -Consumer C:\projects\instal
 
 ## 4. Commit, tag, and package
 
-Commit to `main`. Every commit to `main` is part of a release: the suite installer build refuses a component whose `main` is ahead of its latest tag. Tag the commit `v<ver>` with an annotated tag. Build the zip from the tag. The zip excludes the tests and this file.
+Commit to `master`. Every commit to `master` is part of a release: the suite installer build refuses a component whose `master` is ahead of its latest tag. Tag the commit `v<ver>` with an annotated tag. Build the zip from the tag. The zip excludes the tests and this file.
 
 ```bash
 git tag -a v<ver> -m v<ver>
@@ -42,4 +42,4 @@ Extract the zip to a temporary folder. Import `Module/InstallerAnalysisCommon.ps
 
 ## 5. Publish
 
-Push `main` and the tag. Create the GitHub release with the title `v<ver>` and two assets: the zip and `checksums.txt`. The release must not be a draft. The release notes have a `##` headline with one concrete outcome metric, the `###` sections of the changelog entry, and the footer `Full changelog: CHANGELOG.md`.
+Push `master` and the tag. Create the GitHub release with the title `v<ver>` and two assets: the zip and `checksums.txt`. The release must not be a draft. The release notes have a `##` headline with one concrete outcome metric, the `###` sections of the changelog entry, and the footer `Full changelog: CHANGELOG.md`.
