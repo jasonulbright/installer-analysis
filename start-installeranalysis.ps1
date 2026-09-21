@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    MahApps.Metro WPF shell for the Installer Analysis tool.
+    Main window of Installer Analysis, a tool that reads a Windows installer and reports the data needed to package it.
 
 .DESCRIPTION
     Loads MainWindow.xaml and wires the analysis pipeline behind it: drag-
@@ -17,8 +17,8 @@
 
 .NOTES
     ScriptName : start-installeranalysis.ps1
-    Version    : 1.3.4.0
-    Updated    : 2026-09-09
+    Version    : 2026.09.21.0012
+    Updated    : 2026-09-21
 #>
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '', Justification='Flat-.ps1 GetNewClosure strips $script: access; $global: survives closure scope-strip and keeps shared mutable state (Prefs, PrefsPath, crash log scriptblock) reachable from closure-captured handlers.')]
@@ -1808,8 +1808,8 @@ $btnCopyJson.Add_Click({
         -MsiProperties    $script:LastMsiProperties `
         -PackageMetadata  $script:LastPackageMetadata
     Set-Clipboard -Value $json
-    Add-LogLine    'Copy JSON: MECM-ready digest copied to clipboard.'
-    Set-StatusText 'MECM JSON copied to clipboard.'
+    Add-LogLine    'Copy JSON: ConfigMgr-ready digest copied to clipboard.'
+    Set-StatusText 'ConfigMgr JSON copied to clipboard.'
 })
 
 function New-AnalysisDataTable {
