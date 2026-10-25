@@ -1451,6 +1451,84 @@ Describe 'Export-AnalysisHtml' {
         Test-Path -LiteralPath $htmlPath | Should -BeTrue
         Get-Content -LiteralPath $htmlPath -Raw | Should -Match 'test\.msi'
     }
+
+    It 'encodes markup in cell values' {
+        $dt = New-Object System.Data.DataTable
+        [void]$dt.Columns.Add("Property", [string]); [void]$dt.Columns.Add("Value", [string])
+        [void]$dt.Rows.Add("<script>alert(1)</script>", "<script>alert(2)</script> & `"q`"")
+        $htmlPath = Join-Path $TestDrive 'hostile-cells.html'
+        Initialize-Logging -LogPath (Join-Path $TestDrive 'html-cells.log')
+        Export-AnalysisHtml -DataTable $dt -OutputPath $htmlPath -ReportTitle 'Test'
+        $html = Get-Content -LiteralPath $htmlPath -Raw
+        $html | Should -Not -Match '<script'
+        $html | Should -Match '&lt;script&gt;alert\(1\)&lt;/script&gt;'
+        $html | Should -Match '&lt;script&gt;alert\(2\)&lt;/script&gt; &amp; &quot;q&quot;'
+    }
+
+    It 'encodes markup in column names' {
+        $dt = New-Object System.Data.DataTable
+        [void]$dt.Columns.Add("<script>alert(3)</script>", [string]); [void]$dt.Columns.Add("B", [string])
+        [void]$dt.Rows.Add("a", "b")
+        $htmlPath = Join-Path $TestDrive 'hostile-columns.html'
+        Initialize-Logging -LogPath (Join-Path $TestDrive 'html-columns.log')
+        Export-AnalysisHtml -DataTable $dt -OutputPath $htmlPath -ReportTitle 'Test'
+        $html = Get-Content -LiteralPath $htmlPath -Raw
+        $html | Should -Not -Match '<script'
+        $html | Should -Match '<th>&lt;script&gt;alert\(3\)&lt;/script&gt;</th>'
+    }
+
+    It 'encodes markup in the report title' {
+        $dt = New-Object System.Data.DataTable
+        [void]$dt.Columns.Add("Property", [string]); [void]$dt.Columns.Add("Value", [string])
+        [void]$dt.Rows.Add("a", "b")
+        $htmlPath = Join-Path $TestDrive 'hostile-title.html'
+        Initialize-Logging -LogPath (Join-Path $TestDrive 'html-title.log')
+        Export-AnalysisHtml -DataTable $dt -OutputPath $htmlPath -ReportTitle '</title><script>alert(4)</script>'
+        $html = Get-Content -LiteralPath $htmlPath -Raw
+        $html | Should -Not -Match '<script'
+        ([regex]::Matches($html, '&lt;/title&gt;&lt;script&gt;alert\(4\)&lt;/script&gt;')).Count | Should -Be 2
+    }
+}
+
+Describe 'Module import without a preloaded SuiteCommon' {
+    BeforeDiscovery {
+        $script:hosts = @(
+            @{ Name = 'powershell.exe'; Path = (Get-Command powershell.exe -ErrorAction SilentlyContinue).Source },
+            @{ Name = 'pwsh'; Path = (Get-Command pwsh -ErrorAction SilentlyContinue).Source }
+        ) | Where-Object { $_.Path }
+    }
+
+    BeforeAll {
+        $script:moduleDir = $PSScriptRoot
+        $script:libDir = Join-Path (Split-Path -Parent $PSScriptRoot) 'Lib'
+        $script:vendorRoot = Join-Path $TestDrive 'vendored'
+        $vendorLib = Join-Path $script:vendorRoot 'Lib'
+        New-Item -ItemType Directory -Path (Join-Path $vendorLib 'InstallerAnalysisCommon') -Force | Out-Null
+        Copy-Item -LiteralPath (Join-Path $script:moduleDir 'InstallerAnalysisCommon.psd1') -Destination (Join-Path $vendorLib 'InstallerAnalysisCommon') -Force
+        Copy-Item -LiteralPath (Join-Path $script:moduleDir 'InstallerAnalysisCommon.psm1') -Destination (Join-Path $vendorLib 'InstallerAnalysisCommon') -Force
+        Copy-Item -LiteralPath (Join-Path $script:libDir 'SuiteCommon') -Destination $vendorLib -Recurse -Force
+
+        function script:Invoke-CleanImport {
+            param([string]$HostPath, [string]$ManifestPath)
+            $cmd = "`$ErrorActionPreference = 'Stop'; Import-Module -Name '$ManifestPath' -DisableNameChecking; " +
+                "if (-not (Get-Command Export-AnalysisHtml -ErrorAction SilentlyContinue)) { throw 'missing export' }; " +
+                "if (-not (Get-Module SuiteCommon)) { throw 'SuiteCommon not loaded' }; 'IMPORT-OK'"
+            $out = & $HostPath -NoProfile -NonInteractive -Command $cmd 2>&1 | Out-String
+            [PSCustomObject]@{ ExitCode = $LASTEXITCODE; Output = $out }
+        }
+    }
+
+    It 'imports from the repository layout in a fresh <Name> process' -ForEach $script:hosts {
+        $result = Invoke-CleanImport -HostPath $Path -ManifestPath (Join-Path $script:moduleDir 'InstallerAnalysisCommon.psd1')
+        $result.Output | Should -Match 'IMPORT-OK'
+        $result.ExitCode | Should -Be 0
+    }
+
+    It 'imports from the vendored layout in a fresh <Name> process' -ForEach $script:hosts {
+        $result = Invoke-CleanImport -HostPath $Path -ManifestPath (Join-Path $script:vendorRoot 'Lib\InstallerAnalysisCommon\InstallerAnalysisCommon.psd1')
+        $result.Output | Should -Match 'IMPORT-OK'
+        $result.ExitCode | Should -Be 0
+    }
 }
 
 Describe 'New-AnalysisSummaryText' {
