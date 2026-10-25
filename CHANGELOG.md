@@ -1,5 +1,14 @@
 # Changelog
 
+## [2026.10.25.0018] - 2026-10-25
+
+## 2 fixes
+
+### Fixed
+
+- Fix a security issue in the HTML report export.
+- Import the module on its own outside the suite folder.
+
 ## [2026.10.12.0017] - 2026-10-12
 
 ## 1 PowerShell 7 fix
