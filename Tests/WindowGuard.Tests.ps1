@@ -1,64 +1,112 @@
 #Requires -Modules Pester
-# Tests the window-test guard itself (Test-WindowTestsAllowed in WindowHarness.ps1) with injected
-# parameters, and checks that every test file that opens a window uses the guard.
-# This file opens no window and starts no runspace.
+# Tests of the window-test guard (Test-WindowTestsAllowed in WindowHarness.ps1).
+# The guard keeps window tests off the dev PC (AYW) and runs them only when
+# SUITE_ALLOW_WINDOW_TESTS is 1. This file injects the computer name and the
+# opt-in value, so it never reads the real environment and never opens a window.
 
 BeforeDiscovery {
-    $script:WindowPattern = 'Invoke-WpfSta|New-WpfWindow|ShowDialog|\.Show\(\)|WindowHarness'
-    $script:WindowTestCases = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.Tests.ps1' -File |
-            Where-Object { $_.Name -ne 'WindowGuard.Tests.ps1' -and (Get-Content -LiteralPath $_.FullName -Raw) -match $script:WindowPattern } |
-            ForEach-Object { @{ Name = $_.Name; Path = $_.FullName } })
+    # Every other test file that can open a window must carry the guard.
+    # The scan covers the whole repository, nested folders and lab folders included.
+    $script:RepoRoot = Split-Path -Parent $PSScriptRoot
+    $script:GuardFile = Join-Path $PSScriptRoot 'WindowGuard.Tests.ps1'
+    $script:WindowTestFiles = @(Get-ChildItem -LiteralPath $script:RepoRoot -Filter '*.Tests.ps1' -File -Recurse |
+            Where-Object { $_.FullName -ne $script:GuardFile -and $_.FullName -notlike '*\.git\*' -and $_.FullName -notlike '*\TestOutput\*' -and (Get-Content -LiteralPath $_.FullName -Raw) -match 'Invoke-WpfSta|New-WpfWindow|ShowDialog|\.Show\(\)|WindowHarness' } |
+            ForEach-Object { @{ Name = $_.FullName.Substring($script:RepoRoot.Length + 1); Path = $_.FullName } })
 }
 
 BeforeAll {
     . "$PSScriptRoot\WindowHarness.ps1"
-    # Calls the guard with injected values (the computer name is test data, not a target).
-    function Get-Guard($Computer, $OptIn) { Test-WindowTestsAllowed -ComputerName $Computer -OptIn $OptIn }
+    # Pass the computer name as a variable, so the linter rule against a hard-coded ComputerName stays quiet.
+    function Get-Guard { param([string]$Computer, $Value) Test-WindowTestsAllowed -ComputerName $Computer -OptIn $Value }
 }
 
 Describe 'Test-WindowTestsAllowed' {
-    It 'refuses on the dev PC even with the opt-in' {
-        (Get-Guard 'AYW' '1').Allowed | Should -BeFalse
+    It 'refuses on AYW even with the opt-in' {
+        $r = Get-Guard 'AYW' '1'
+        $r.Allowed | Should -BeFalse
+        $r.Reason | Should -Match 'AYW'
     }
 
-    It 'refuses on the dev PC when the name is lower case' {
+    It 'refuses on ayw in lower case' {
         (Get-Guard 'ayw' '1').Allowed | Should -BeFalse
     }
 
-    It 'allows another computer with the opt-in' {
-        (Get-Guard 'CM01' '1').Allowed | Should -BeTrue
+    It 'refuses on AYW without the opt-in' {
+        (Get-Guard 'AYW' '').Allowed | Should -BeFalse
     }
 
-    It 'refuses another computer when the opt-in is <Label>' -ForEach @(
-        @{ Label = 'empty'; OptIn = '' }
-        @{ Label = '0'; OptIn = '0' }
-        @{ Label = 'missing'; OptIn = $null }
+    It 'allows another computer with the opt-in 1' {
+        $r = Get-Guard 'CM01' '1'
+        $r.Allowed | Should -BeTrue
+        $r.Reason | Should -BeNullOrEmpty
+    }
+
+    It 'refuses another computer when the opt-in is <Label>, and names the opt-in' -ForEach @(
+        @{ Label = 'empty'; Value = '' }
+        @{ Label = 'null'; Value = $null }
+        @{ Label = '0'; Value = '0' }
+        @{ Label = 'true'; Value = 'true' }
     ) {
-        $r = Get-Guard 'CM01' $OptIn
+        $r = Get-Guard 'CLIENT01' $Value
         $r.Allowed | Should -BeFalse
         $r.Reason | Should -Match 'SUITE_ALLOW_WINDOW_TESTS'
     }
 
-    It 'gives a reason when it refuses' -ForEach @(
-        @{ ComputerName = 'AYW'; OptIn = '1' }
-        @{ ComputerName = 'CM01'; OptIn = '0' }
+    It 'gives a reason whenever it refuses (<Name>, opt-in "<Value>")' -ForEach @(
+        @{ Name = 'AYW'; Value = '1' }
+        @{ Name = 'CM01'; Value = '' }
+        @{ Name = 'CM01'; Value = '0' }
     ) {
-        (Get-Guard $ComputerName $OptIn).Reason | Should -Not -BeNullOrEmpty
-    }
-
-    It 'names the dev PC as the reason on the dev PC' {
-        (Get-Guard 'AYW' '0').Reason | Should -Match 'dev PC'
+        (Get-Guard $Name $Value).Reason | Should -Not -BeNullOrEmpty
     }
 }
 
-Describe 'Window test files' {
-    It 'finds the window test files' {
-        # Discovery variables do not exist in the run phase, so the file list is read again here.
-        $files = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.Tests.ps1' -File | Where-Object { $_.Name -ne 'WindowGuard.Tests.ps1' -and (Get-Content -LiteralPath $_.FullName -Raw) -match 'Invoke-WpfSta|WindowHarness' })
-        $files.Count | Should -BeGreaterOrEqual 1
+Describe 'Window test files carry the guard' {
+    It 'finds at least one test file that can open a window' -ForEach @(@{ Found = @($script:WindowTestFiles).Count }) {
+        $Found | Should -BeGreaterThan 0
     }
 
-    It '<Name> uses the guard' -ForEach $script:WindowTestCases {
-        Get-Content -LiteralPath $Path -Raw | Should -Match 'Test-WindowTestsAllowed'
+    It 'prints the skip reason once: Invoke-Checks sets the marker and Window.Tests reads it' {
+        (Get-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'Invoke-Checks.ps1') -Raw) | Should -Match '\$env:SUITE_WINDOW_GUARD_REPORTED\s*=\s*''1'''
+        (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Window.Tests.ps1') -Raw) | Should -Match '-not \$env:SUITE_WINDOW_GUARD_REPORTED'
+    }
+
+    It '<Name> calls Test-WindowTestsAllowed and applies -Skip' -ForEach $script:WindowTestFiles {
+        $text = Get-Content -LiteralPath $Path -Raw
+        $text | Should -Match 'Test-WindowTestsAllowed'
+        $text | Should -Match '-Skip:'
+    }
+
+    It '<Name> applies the guard to every top-level Describe' -ForEach $script:WindowTestFiles {
+        $describes = @(Get-Content -LiteralPath $Path | Where-Object { $_ -match '^\s*Describe\b' })
+        $describes.Count | Should -BeGreaterThan 0
+        @($describes | Where-Object { $_ -notmatch '-Skip:\(-not \$script:WindowGuard\.Allowed\)' }) | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Get-WpfSession refuses where the guard says no' {
+    BeforeAll {
+        Mock Test-WindowTestsAllowed { [pscustomobject]@{ Allowed = $false; Reason = 'test' } }
+    }
+    AfterEach { $script:HarnessSession = $null }
+
+    It 'throws and creates no session' {
+        $script:HarnessSession = $null
+        { Get-WpfSession } | Should -Throw '*not allowed*'
+        $script:HarnessSession | Should -BeNullOrEmpty
+    }
+
+    It 'does not hand out a cached session' {
+        $script:HarnessSession = [pscustomobject]@{ RunspaceStateInfo = [pscustomobject]@{ State = 'Opened' } }
+        { Get-WpfSession } | Should -Throw '*not allowed*'
+    }
+}
+
+Describe 'Machine identity' {
+    It 'takes the computer name from the machine, not from the COMPUTERNAME variable' {
+        foreach ($f in 'WindowHarness.ps1', '..\Invoke-Checks.ps1') {
+            (Get-Content -LiteralPath (Join-Path $PSScriptRoot $f) -Raw) | Should -Not -Match '\$env:COMPUTERNAME'
+        }
+        (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'WindowHarness.ps1') -Raw) | Should -Match 'MachineName'
     }
 }

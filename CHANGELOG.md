@@ -6,7 +6,9 @@
 
 ### Added
 
-- Skip the window tests on the development PC and when no opt-in is set.
+- Skip the window tests on the development PC and without the opt-in. The console shows the reason.
+- Add tests that check the guard and that every window test carries it.
+- Print one line when Invoke-Checks skips the window tests.
 
 ### Changed
 

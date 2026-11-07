@@ -4,9 +4,19 @@
 # 1440x900, and measured. The app-specific names live in WindowConfig.ps1.
 
 BeforeDiscovery {
+    # The guard decides before any runspace or window exists. A skipped run says why, once.
     . "$PSScriptRoot\WindowHarness.ps1"
     $script:WindowGuard = Test-WindowTestsAllowed
-    if (-not $script:WindowGuard.Allowed) { Write-Host ("Window tests skipped: {0}" -f $script:WindowGuard.Reason) }
+    if (-not $script:WindowGuard.Allowed -and -not $env:SUITE_WINDOW_GUARD_REPORTED) { Write-Host ("Window tests skipped: {0}." -f $script:WindowGuard.Reason) }
+    if (-not $script:WindowGuard.Allowed) {
+        # Denied: evaluate nothing derived from the shell script. One placeholder case per list keeps the
+        # skipped Describe blocks visible as Skipped, and an empty case list never reaches Pester.
+        $script:Matrix = @(@{ Dark = $true; Theme = 'skipped'; W = 0; H = 0; Size = 'skipped' })
+        $script:ViewCases = @(@{ View = 'skipped' })
+        $script:NameCases = @(@{ Name = 'skipped' })
+        $script:DialogCases = @(@{ Index = 0 })
+        return
+    }
     . "$PSScriptRoot\WindowConfig.ps1"
     $script:Matrix = foreach ($dark in $true, $false) {
         foreach ($size in @(@(1024, 720), @(1440, 900))) {

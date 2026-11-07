@@ -75,7 +75,9 @@ if ($testFiles.Count -eq 0) { Write-Host 'No test file found.'; exit 1 }
 $windowGuard = Test-WindowTestsAllowed
 $windowTestFiles = 'Window.Tests.ps1'
 $windowTestsRun = $windowGuard.Allowed -and -not $SkipWindow
+$windowSkipReported = $false
 if (-not $windowGuard.Allowed) {
+    $windowSkipReported = $true
     if ($windowGuard.Reason -like 'dev PC*') { Write-Host 'Window tests skipped: dev PC (AYW). Run them on CM01/CLIENT01 or in CI.' }
     else { Write-Host 'Window tests skipped: SUITE_ALLOW_WINDOW_TESTS is not 1.' }
 }
@@ -86,7 +88,12 @@ $cfg.Output.Verbosity = 'Minimal'
 $cfg.CodeCoverage.Enabled = $true
 $cfg.CodeCoverage.OutputPath = Join-Path ([System.IO.Path]::GetTempPath()) ('ia-coverage-{0}.xml' -f [guid]::NewGuid().ToString('N'))
 $cfg.CodeCoverage.Path = @(Get-ChildItem -LiteralPath (Join-Path $root 'Module') -Filter '*.psm1' -File | ForEach-Object FullName)
-$result = Invoke-Pester -Configuration $cfg
+# Window.Tests.ps1 prints the same reason when it runs alone. The marker keeps it quiet during this run
+# only, and the previous value comes back afterwards, so a later standalone run is not muted.
+$previousMarker = $env:SUITE_WINDOW_GUARD_REPORTED
+if ($windowSkipReported) { $env:SUITE_WINDOW_GUARD_REPORTED = '1' }
+try { $result = Invoke-Pester -Configuration $cfg }
+finally { $env:SUITE_WINDOW_GUARD_REPORTED = $previousMarker }
 
 $cov = $result.CodeCoverage
 # Keep the unrounded value for the floor: 79.96 must not round up to 80.
