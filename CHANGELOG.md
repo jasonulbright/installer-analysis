@@ -1,5 +1,18 @@
 # Changelog
 
+## [2026.11.07.0021] - 2026-11-07
+
+## 1 shared library refresh and window tests that cannot steal focus
+
+### Added
+
+- Skip the window tests on the development PC and when no opt-in is set.
+
+### Changed
+
+- Update the shared library to version 2026.11.07.0075.
+- Check the coverage floor only when the window tests run.
+
 ## [2026.11.07.0020] - 2026-11-07
 
 ## 1 fix and a user guide
