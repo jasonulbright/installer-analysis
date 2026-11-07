@@ -17,12 +17,7 @@ try {
         $r = Invoke-WpfSta -Arguments @{ Dark = $dark; Config = $script:AppConfig } -Script {
             $cfg = $Arguments.Config
             $w = Open-TestWindow -XamlPath (Join-Path $Root $cfg.Xaml) -Dark $Arguments.Dark -PopulateScript $cfg.PopulateScript
-            $out = @()
-            foreach ($view in $cfg.Views) {
-                foreach ($v in $cfg.Views) { $w.FindName($v.Container).Visibility = if ($v.Name -eq $view.Name) { 'Visible' } else { 'Collapsed' } }
-                Initialize-ShellTheme -Window $w -Dark $Arguments.Dark -Views $cfg.Views -OptionsButtonName $cfg.OptionsButton -LogLabelName $cfg.LogLabel -ActiveView $view.Name -ActiveMode $cfg.ActiveMode
-                $out += [PSCustomObject]@{ Text = @(Get-TextContrast $w); Interactive = @(Get-InteractiveContrast $w); TitleBar = Get-TitleBarContrast $w }
-            }
+            $out = Measure-WindowViews -Window $w -Config $cfg -Dark $Arguments.Dark -Full $true
             $w.Close(); , $out
         }
         $keys = Get-ContrastViolationKey -Views @($r)

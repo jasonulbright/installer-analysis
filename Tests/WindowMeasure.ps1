@@ -133,7 +133,9 @@ $script:MeasureFunctions = {
             $tf = New-Object System.Windows.Media.Typeface($e.FontFamily, $e.FontStyle, $e.FontWeight, $e.FontStretch)
             $ft = New-Object System.Windows.Media.FormattedText($e.Text, [System.Globalization.CultureInfo]::CurrentCulture,
                 [System.Windows.FlowDirection]::LeftToRight, $tf, $e.FontSize, [System.Windows.Media.Brushes]::Black, [System.Windows.Media.VisualTreeHelper]::GetDpi($e).PixelsPerDip)
-            if ($e.ActualWidth + 1 -lt $ft.WidthIncludingTrailingWhitespace) {
+            # ActualWidth includes the padding; the text has the width without it.
+            $available = $e.ActualWidth - $e.Padding.Left - $e.Padding.Right
+            if ($available + 1 -lt $ft.WidthIncludingTrailingWhitespace) {
                 $rows += [PSCustomObject]@{ Name = $e.Name; Text = $e.Text; Needed = [math]::Round($ft.WidthIncludingTrailingWhitespace, 1); Actual = [math]::Round($e.ActualWidth, 1) }
             }
         }
@@ -207,11 +209,34 @@ $script:MeasureFunctions = {
                 $dis = Get-ControlColors $c $Window
             }
             finally {
-                if ($local -eq [System.Windows.DependencyProperty]::UnsetValue) { $c.ClearValue([System.Windows.UIElement]::IsEnabledProperty) } else { $c.IsEnabled = [bool]$local }
+                # -eq would convert UnsetValue to a boolean, so test the type: only a real local boolean is put back.
+                if ($local -is [bool]) { $c.IsEnabled = $local } else { $c.ClearValue([System.Windows.UIElement]::IsEnabledProperty) }
                 Wait-Layout $Window 1
             }
             $rows += [PSCustomObject]@{ Name = $c.Name; Type = $en.Type; EnabledText = $en.TextRatio; DisabledText = $dis.TextRatio; EnabledBorder = $en.BorderRatio; DisabledBorder = $dis.BorderRatio }
         }
         return $rows
+    }
+
+    # Measures every configured view of an open window in the current theme. Window.Tests.ps1 and
+    # Show-ContrastViolations.ps1 both call it, so the printed list of known defects is made
+    # the same way as the list that the test checks. $Full adds the contrast measurements.
+    function Measure-WindowViews {
+        param($Window, $Config, [bool]$Dark, [bool]$Full)
+        $out = @()
+        foreach ($view in $Config.Views) {
+            foreach ($v in $Config.Views) { $Window.FindName($v.Container).Visibility = if ($v.Name -eq $view.Name) { 'Visible' } else { 'Collapsed' } }
+            Initialize-ShellTheme -Window $Window -Dark $Dark -Views $Config.Views `
+                -OptionsButtonName $Config.OptionsButton -LogLabelName $Config.LogLabel -ActiveView $view.Name -ActiveMode $Config.ActiveMode
+            $out += [PSCustomObject]@{
+                View        = $view.Name
+                Text        = if ($Full) { @(Get-TextContrast $Window) } else { @() }
+                Clipped     = @(Get-ClippedText $Window)
+                Offscreen   = @(Get-OffscreenControls $Window)
+                Interactive = if ($Full) { @(Get-InteractiveContrast $Window) } else { @() }
+                TitleBar    = if ($Full) { Get-TitleBarContrast $Window } else { $null }
+            }
+        }
+        return , $out
     }
 }

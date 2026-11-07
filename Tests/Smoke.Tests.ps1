@@ -19,6 +19,14 @@ BeforeDiscovery {
 
 BeforeAll {
     . "$PSScriptRoot\TestHelpers.ps1"
+    # BeforeDiscovery variables are not visible while the tests run.
+    $realDir = if ($env:IA_REAL_FIXTURE_DIR) { $env:IA_REAL_FIXTURE_DIR } else { 'c:\temp\ap' }
+    $script:RealInstallers = @()
+    if (Test-Path -LiteralPath $realDir) {
+        $script:RealInstallers = @(Get-ChildItem -LiteralPath $realDir -Recurse -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Extension -in '.msi', '.exe', '.msix', '.msixbundle', '.appx', '.intunewin', '.nupkg' } |
+                Select-Object -First 3 | ForEach-Object { @{ Path = $_.FullName; Leaf = $_.Name } })
+    }
     Import-AppModule
     Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
     $script:Work = Join-Path ([System.IO.Path]::GetTempPath()) ('ia-smoke-' + [guid]::NewGuid().ToString('N'))
@@ -114,15 +122,18 @@ Describe 'Core pipeline' {
 }
 
 Describe 'Real installers (optional)' {
-    It 'analyzes <Leaf> end to end' -ForEach $script:RealInstallers -Skip:($script:RealInstallers.Count -eq 0) {
-        $fi = Get-InstallerFileInfo -Path $Path
-        $type = Get-InstallerType -Path $Path
-        $fi | Should -Not -BeNullOrEmpty
-        $type | Should -Not -BeNullOrEmpty
-        $msi = if ($type -eq 'MSI') { Get-MsiProperties -MsiPath $Path }
-        $switches = Get-SilentSwitches -InstallerType $type -FilePath $Path -MsiProperties $msi
-        $deploy = Get-DeploymentFields -FileInfo $fi -MsiProperties $msi -Switches $switches
-        $parsed = ConvertTo-DeploymentJson -FileInfo $fi -InstallerType $type -Switches $switches -DeploymentFields $deploy -MsiProperties $msi | ConvertFrom-Json
-        $parsed.Application.DisplayName | Should -Not -BeNullOrEmpty
+    It 'analyzes each installer in the real-installer folder end to end' -Skip:($script:RealInstallers.Count -eq 0) {
+        foreach ($installer in $script:RealInstallers) {
+            $Path = $installer.Path
+            $fi = Get-InstallerFileInfo -Path $Path
+            $type = Get-InstallerType -Path $Path
+            $fi | Should -Not -BeNullOrEmpty -Because $installer.Leaf
+            $type | Should -Not -BeNullOrEmpty -Because $installer.Leaf
+            $msi = if ($type -eq 'MSI') { Get-MsiProperties -MsiPath $Path }
+            $switches = Get-SilentSwitches -InstallerType $type -FilePath $Path -MsiProperties $msi
+            $deploy = Get-DeploymentFields -FileInfo $fi -MsiProperties $msi -Switches $switches
+            $parsed = ConvertTo-DeploymentJson -FileInfo $fi -InstallerType $type -Switches $switches -DeploymentFields $deploy -MsiProperties $msi | ConvertFrom-Json
+            $parsed.Application.DisplayName | Should -Not -BeNullOrEmpty -Because $installer.Leaf
+        }
     }
 }

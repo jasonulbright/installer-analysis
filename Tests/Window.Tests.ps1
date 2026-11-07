@@ -51,20 +51,7 @@ BeforeAll {
             $w = Open-TestWindow -XamlPath (Join-Path $Root $cfg.Xaml) -Dark $Arguments.Dark -Width $Arguments.W -Height $Arguments.H -PopulateScript $cfg.PopulateScript
             # Contrast is read only at 1440x900. Clipped text and off-screen controls are read at both sizes.
             $full = $Arguments.W -ge 1440
-            $out = @()
-            foreach ($view in $cfg.Views) {
-                foreach ($v in $cfg.Views) { $w.FindName($v.Container).Visibility = if ($v.Name -eq $view.Name) { 'Visible' } else { 'Collapsed' } }
-                Initialize-ShellTheme -Window $w -Dark $Arguments.Dark -Views $cfg.Views `
-                    -OptionsButtonName $cfg.OptionsButton -LogLabelName $cfg.LogLabel -ActiveView $view.Name -ActiveMode $cfg.ActiveMode
-                $out += [PSCustomObject]@{
-                    View        = $view.Name
-                    Text        = if ($full) { @(Get-TextContrast $w) } else { @() }
-                    Clipped     = @(Get-ClippedText $w)
-                    Offscreen   = @(Get-OffscreenControls $w)
-                    Interactive = if ($full) { @(Get-InteractiveContrast $w) } else { @() }
-                    TitleBar    = if ($full) { Get-TitleBarContrast $w } else { $null }
-                }
-            }
+            $out = Measure-WindowViews -Window $w -Config $cfg -Dark $Arguments.Dark -Full $full
             $w.Close()
             , $out
         }

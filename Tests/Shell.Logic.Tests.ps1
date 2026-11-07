@@ -442,6 +442,7 @@ Describe 'Invoke-PayloadExtractAll' {
         Mock Expand-InstallerPayload { throw 'access denied' }
         Invoke-PayloadExtractAll -Target 'D:\Out'
         Get-Log | Should -BeLike '*Extract Payload failed: access denied*'
+        $script:txtStatus.Text | Should -BeLike 'Extract failed*' -Because 'the status bar must not keep showing Extracting to ...'
         [string]$script:progressOverlay.Visibility | Should -Be 'Collapsed'
     }
 

@@ -1953,6 +1953,7 @@ function Invoke-PayloadExtractAll {
         }
     } catch {
         Add-LogLine ('Extract Payload failed: {0}' -f $_.Exception.Message)
+        Set-StatusText 'Extract failed: 7-Zip could not be run.'
     } finally {
         $progressOverlay.Visibility = [System.Windows.Visibility]::Collapsed
     }

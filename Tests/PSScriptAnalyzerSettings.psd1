@@ -1,7 +1,8 @@
 @{
     Severity = @('Error', 'Warning', 'Information')
-    # Pilot defaults, 2026-11-02. Each excluded rule is advice about style, or reports a false positive
-    # in these projects. The owner can change the list. See wiki/concepts/powershell-linting.md.
+    # Each excluded rule is advice about style, or reports a false positive in this project:
+    # the console tools print with Write-Host on purpose, WPF handlers bind unused sender
+    # parameters, and several names are plural because they return collections.
     ExcludeRules = @(
         'PSAvoidUsingWriteHost'
         'PSReviewUnusedParameter'

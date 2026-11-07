@@ -71,7 +71,7 @@ Describe 'Source files' {
     It 'have a byte order mark when they hold non-ASCII text: <Name>' -ForEach $script:ScriptFiles {
         $bytes = [System.IO.File]::ReadAllBytes($Path)
         $hasBom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
-        $nonAscii = @($bytes | Where-Object { $_ -gt 127 }).Count -gt 0
+        $nonAscii = [Array]::Exists($bytes, [Predicate[byte]] { param($b) $b -gt 127 })
         if ($nonAscii) { $hasBom | Should -BeTrue }
     }
 }

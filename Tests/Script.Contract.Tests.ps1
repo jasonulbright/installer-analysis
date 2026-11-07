@@ -11,6 +11,8 @@ BeforeAll {
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase -ErrorAction SilentlyContinue
     foreach ($dll in 'Microsoft.Xaml.Behaviors.dll', 'ControlzEx.dll', 'MahApps.Metro.dll') { [void][System.Reflection.Assembly]::LoadFrom((Join-Path $script:AppRoot "Lib\$dll")) }
     Import-Module (Join-Path $script:AppRoot 'Lib\SuiteCommon\SuiteCommon.psd1') -Global -DisableNameChecking -ErrorAction SilentlyContinue
+    # Without SuiteCommon the SuiteCommon calls would be skipped and pass unchecked.
+    $script:SuiteCommonLoaded = [bool](Get-Module -Name SuiteCommon)
     $script:Files = @(
         Get-ChildItem -LiteralPath $script:AppRoot -Filter 'start-*.ps1' -File
         Get-ChildItem -LiteralPath (Join-Path $script:AppRoot 'Module') -Filter '*.psm1' -File
@@ -66,6 +68,10 @@ BeforeAll {
 }
 
 Describe 'Calls into app functions and SuiteCommon' {
+    It 'has SuiteCommon loaded, so that its calls are checked' {
+        $script:SuiteCommonLoaded | Should -BeTrue
+    }
+
     It 'checks a useful number of named parameters' {
         $script:Checked | Should -BeGreaterThan 100
     }

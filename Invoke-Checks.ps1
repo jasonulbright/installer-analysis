@@ -38,7 +38,8 @@ $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $failed = $false
 
-Import-Module Pester -MinimumVersion 5.0 -ErrorAction Stop
+# Pester 5 only: Pester 6 fails a test file that has an empty -ForEach list.
+Import-Module Pester -MinimumVersion 5.0 -MaximumVersion 5.99.99 -ErrorAction Stop
 
 # ---- 1. Lint ---------------------------------------------------------------
 if (-not $SkipLint) {
@@ -72,7 +73,7 @@ $cfg.Run.Path = $testFiles.FullName
 $cfg.Run.PassThru = $true
 $cfg.Output.Verbosity = 'Minimal'
 $cfg.CodeCoverage.Enabled = $true
-$cfg.CodeCoverage.OutputPath = Join-Path ([System.IO.Path]::GetTempPath()) 'ia-coverage.xml'
+$cfg.CodeCoverage.OutputPath = Join-Path ([System.IO.Path]::GetTempPath()) ('ia-coverage-{0}.xml' -f [guid]::NewGuid().ToString('N'))
 $cfg.CodeCoverage.Path = @(Get-ChildItem -LiteralPath (Join-Path $root 'Module') -Filter '*.psm1' -File | ForEach-Object FullName)
 $result = Invoke-Pester -Configuration $cfg
 

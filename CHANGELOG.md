@@ -6,7 +6,7 @@
 
 ### Fixed
 
-- Report a failed payload extraction as a failure instead of as complete.
+- Report a failed payload extraction as a failure in the log and the status bar.
 - Stop a single-entry extraction from returning a file left by an earlier run.
 - Read MSI properties and summary with the bundled MSI module.
 - Name the MSI platform from the Template platform only, and name ARM64 packages.

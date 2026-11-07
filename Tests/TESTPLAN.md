@@ -4,7 +4,7 @@ Measured 2026-11-06 with `Invoke-Checks.ps1` (Pester 5.7.1, PSScriptAnalyzer 1.2
 
 | | Before | After |
 |---|---|---|
-| Tests | 298 (`Module\InstallerAnalysisCommon.Tests.ps1`; `Tests\Smoke.Tests.ps1` was a script outside Pester) | 941 on Windows PowerShell 5.1 and on PowerShell 7 |
+| Tests | 298 (`Module\InstallerAnalysisCommon.Tests.ps1`; `Tests\Smoke.Tests.ps1` was a script outside Pester) | 943 on Windows PowerShell 5.1 and on PowerShell 7 (1 skips when no real installers are present) |
 | Module coverage | 82.0% (4257 of 5192 commands) | 90.0% (4694 of 5215 commands) |
 | Lint | not enforced | 0 Error or Warning on every script, module and test file |
 | Lab steps | none | none: the app reads installers and writes only local files, so it needs no ConfigMgr lab |
@@ -17,7 +17,7 @@ Each defect has a failing test that was run against the code before the fix.
 
 | # | Defect | Test | Fix |
 |---|---|---|---|
-| 1 | A payload extraction that 7-Zip ended with an error code still returned the folder, and the window logged "Extract Payload: complete." | `Module.Write.Tests.ps1` (Expand-InstallerPayload, fatal exit codes), `Shell.Logic.Tests.ps1` (Invoke-PayloadExtractAll) | Exit code 2 and above returns nothing; the window reports a failure. Exit code 1 stays a warning. |
+| 1 | A payload extraction that 7-Zip ended with an error code still returned the folder, and the window logged "Extract Payload: complete." | `Module.Write.Tests.ps1` (Expand-InstallerPayload, fatal exit codes), `Shell.Logic.Tests.ps1` (Invoke-PayloadExtractAll) | Exit code 2 and above returns nothing; the window reports a failure in the log and the status bar, also when the call throws. Exit code 1 stays a warning. |
 | 2 | Extracting one entry returned the newest file in the output folder when the expected file was missing, so a file from an earlier run was reported as the result (hash, analysis). | `Module.Write.Tests.ps1` (Expand-PayloadEntry) | The fallback considers only files that the run added. |
 | 3 | The bundled MSI module was never used. `Import-Module MSI` by name fails when the shell loaded the module by path, and `Get-MSISummaryInfo` inside the module called the module's own `Get-MsiSummaryInfo` (command names ignore case). Every analysis logged two warnings and used Windows Installer. | `Module.Msi.Tests.ps1` (vendored MSI module) | Import only when not loaded; call `MSI\Get-MSISummaryInfo`. Results match Windows Installer on real MSI files. |
 | 4 | The platform came from any "64" in the MSI Template, so a language id such as 2064 made a 32-bit package x64, and Arm64 packages were named x64. | `Module.Msi.Tests.ps1` (template cases) | Only the platform part before the semicolon decides; Arm64 is named arm64. |
