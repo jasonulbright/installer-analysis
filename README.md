@@ -157,6 +157,10 @@ plus the PSGallery `MSI` module (heaths/psmsi, MIT) for enhanced MSI
 property extraction with a `WindowsInstaller` COM fallback when the
 vendored module can't load.
 
+## Tests
+
+`.\Invoke-Checks.ps1` runs the lint, the Pester suite and the coverage floor. Run it under Windows PowerShell 5.1 and under PowerShell 7. CI runs the same script on both. See `Tests/TESTPLAN.md` for what the tests cover.
+
 ## License
 
 MIT.
