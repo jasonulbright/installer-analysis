@@ -21,7 +21,7 @@ Use it before you package an application, to find the silent install command, th
 ### Start the tool
 
 1. Extract the release zip to a folder that you can write to. The tool saves its settings and logs in that folder.
-2. Right-click `start-installeranalysis.ps1` and select **Run with PowerShell**. Or run this command:
+2. Right-click `start-installeranalysis.ps1` and select **Run with PowerShell**. Or open PowerShell in the extracted folder and run this command. Without the folder, give the full path of the script.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File start-installeranalysis.ps1
@@ -42,7 +42,7 @@ The window opens on the **Overview**. It is empty until you open a file.
 
 ### Read the result
 
-Read the Overview. See [Overview](core/overview.md). Use the sidebar to open the other views. The sidebar shows only the views that the file has data for.
+Read the Overview. See [Overview](core/overview.md). Use the sidebar to open the other views. **MSI Properties**, **Payload** and **Strings** always show, also when they have no data. **File Browser**, **Inner Installers** and **Registry Settings** show only when the file has data for them.
 
 ## Options and settings of this page
 

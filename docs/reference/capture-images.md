@@ -21,9 +21,9 @@ Use it after a change that alters the window, and before a release.
 
 1. Run this command from the repository folder:
 
-```powershell
-.\tools\guide-capture\Invoke-GuideCapture.ps1 -CredentialScript C:\lab\credentials.local.ps1 -Target CLIENT01 -LogonUser contoso\labadmin -SmsProvider cm01.contoso.com
-```
+   ```powershell
+   .\tools\guide-capture\Invoke-GuideCapture.ps1 -CredentialScript C:\lab\credentials.local.ps1 -Target CLIENT01 -LogonUser contoso\labadmin
+   ```
 
 2. Wait for the command to end. It prints a warning for each step that failed.
 3. Open every changed image and check it. Look for clipped text, empty grids and stale version strings.
@@ -33,7 +33,7 @@ Use it after a change that alters the window, and before a release.
 ## Limits
 
 - The capture needs an interactive session on the lab computer. A locked session breaks it.
-- The images show the data of the lab site.
+- The images show data from the lab computer.
 
 ## Troubleshooting
 

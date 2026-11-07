@@ -4,7 +4,7 @@ The payload views list the files inside an EXE wrapper.
 
 ## What it does
 
-For an EXE-wrapped installer (NSIS, Inno Setup, InstallShield, WiX Burn, 7-Zip SFX), the **Payload** view lists the contents with 7-Zip: the name, the size and the date. When the payload has installers inside, the **Embedded** view classifies them: inner MSIs, MSPs, EXEs, `.nupkg` files and cabinet files. **Files** shows the payload as a folder tree. Right-click menus extract, copy and hash entries.
+For an EXE-wrapped installer (NSIS, Inno Setup, InstallShield, WiX Burn, 7-Zip SFX), the **Payload** view lists the contents with 7-Zip: the name, the size and the date. When the payload has installers inside, the **Inner Installers** view classifies them: inner MSIs, MSPs, EXEs, `.nupkg` files and cabinet files. **File Browser** shows the payload as a folder tree. Right-click menus extract, copy and hash entries.
 
 ## When to use it
 
@@ -25,31 +25,32 @@ Use it to find the MSI inside a setup EXE, or to read an inner installer on its 
 
 ### Analyze an inner installer
 
-1. Select **Embedded** in the sidebar. The button shows only when the payload has installers.
+1. Select **Inner Installers** in the sidebar. The button shows only when the payload has installers.
 2. Select a row and select **Analyze Selected**. The tool extracts the entry to a sandboxed temporary folder and analyzes it. A breadcrumb bar with a back button shows the path. The drill depth is at most 5.
 3. Select **Open in new window** to compare the outer and the inner installer side by side.
-4. Select **Extract All** to extract the inner installers to a folder.
+4. Select **Extract All Inner** to extract the inner installers to a folder.
 
 ### Browse the files
 
-Select **Files** in the sidebar. The tree shows the folders and the grid shows the files. The buttons **Up**, **Extract Selected** and **Extract This Folder** extract entries.
+Select **File Browser** in the sidebar. The tree shows the folders and the grid shows the files. **Up** goes to the parent folder. **Extract Selected** and **Extract This Folder** extract entries.
 
 ### Use the right-click menus
 
 A payload row has **Extract to temp folder**, **Copy name**, **Copy full path** and **Hash (SHA-256)**. An inner installer row also has **Analyze Selected** and **Open in new window**.
 
-This guide ran on a lab computer without 7-Zip. It shows the empty **Payload** view. The **Embedded** and **Files** views and the right-click menus were read from the README and the code. They were not run.
+This guide ran on a lab computer without 7-Zip. It shows the empty **Payload** view. The **Inner Installers** and **File Browser** views and the right-click menus were read from the README and the code. They were not run.
 
 ## Options and settings of this page
 
 | Control | Effect |
 |---|---|
-| **Analyze Selected**, **Open in new window**, **Extract All** | Work on the inner installers. |
-| **Extract Selected**, **Extract This Folder**, **Up** | Work on the files. |
+| **Analyze Selected**, **Open in new window**, **Extract All Inner** | Work on the inner installers. |
+| **Extract Selected**, **Extract This Folder** | Extract files. |
+| **Up** | Goes to the parent folder. |
 
 ## Limits
 
-- The temporary folder is deleted when you close the window.
+- The tool removes the temporary folder `%LOCALAPPDATA%\InstallerAnalysis\Temp` when you close the window, as far as it can. Removal is best effort. Check the folder when removal matters.
 - The tool needs 7-Zip for the payload views. Metadata reads, for example of a Velopack setup, need no 7-Zip.
 - Extraction writes files to the folder that you choose.
 

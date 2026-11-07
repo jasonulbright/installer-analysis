@@ -42,7 +42,9 @@ $here = $PSScriptRoot
 $repo = (Resolve-Path (Join-Path $here '..\..')).Path
 $app = Split-Path $repo -Leaf
 $images = Join-Path $repo 'docs\images'
+if (-not (Test-Path -LiteralPath $CredentialScript -PathType Leaf)) { throw "The credential script does not exist: $CredentialScript" }
 . $CredentialScript
+if (-not $LabCredential) { throw 'The credential script did not set $LabCredential.' }
 $prefsFile = 'InstallerAnalysis.prefs.json'
 $settings = '{}'
 $failed = New-Object System.Collections.Generic.List[string]
@@ -104,8 +106,31 @@ try {
     if ($duplicate.Count) { throw ("Two runs produced the same image. No image was replaced.`n" + ($duplicate -join "`n")) }
     $missing = @(Get-ChildItem $images -Filter *.png | Where-Object { -not $capturedNames.Contains($_.Name) } | ForEach-Object { $_.Name })
     if ($missing.Count) { throw ("The capture did not produce these guide images. No image was replaced.`n" + ($missing -join "`n")) }
-    foreach ($png in $captured) {
-        if ($AddNew -or (Test-Path (Join-Path $images $png.Name))) { Copy-Item $png.FullName (Join-Path $images $png.Name) -Force }
+    # Stage the new files first and move them in one pass. A failed move restores the old files.
+    $staging = Join-Path $tmp 'staging'
+    New-Item -ItemType Directory $staging | Out-Null
+    $backup = Join-Path $tmp 'backup'
+    New-Item -ItemType Directory $backup | Out-Null
+    $placed = New-Object System.Collections.Generic.List[string]
+    try {
+        foreach ($png in $captured) {
+            $target = Join-Path $images $png.Name
+            if (-not ($AddNew -or (Test-Path $target))) { continue }
+            Copy-Item $png.FullName (Join-Path $staging $png.Name) -Force
+        }
+        foreach ($file in Get-ChildItem $staging -Filter *.png) {
+            $target = Join-Path $images $file.Name
+            if (Test-Path $target) { Copy-Item $target (Join-Path $backup $file.Name) -Force }
+            Copy-Item $file.FullName $target -Force
+            $placed.Add($file.Name)
+        }
+    }
+    catch {
+        foreach ($name in $placed) {
+            $old = Join-Path $backup $name
+            if (Test-Path $old) { Copy-Item $old (Join-Path $images $name) -Force } else { Remove-Item (Join-Path $images $name) -Force -ErrorAction SilentlyContinue }
+        }
+        throw
     }
     $succeeded = $true
 }

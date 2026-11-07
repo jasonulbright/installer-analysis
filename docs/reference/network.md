@@ -14,7 +14,7 @@ Use it to open the firewall for the tool, or to check the traffic.
 
 | Call | Target | When | Content |
 |---|---|---|---|
-| `https://api.github.com/repos/<repository>/releases/latest` | HTTPS to GitHub. | At the start of the window, once a day, only when the tool is installed by the suite installer. | The check for a newer suite version. The result goes to the log. |
+| `https://api.github.com/repos/<repository>/releases/latest` | HTTPS to GitHub. | At the start of the window, at most once in 24 hours, only when the tool is installed by the suite installer. The cache refreshes only after a successful lookup. A failed check can be retried at a later start before 24 hours have passed. | The check for a newer suite version. The result goes to the log. |
 
 
 ## Steps

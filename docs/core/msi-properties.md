@@ -4,7 +4,7 @@ The MSI Properties view shows the property table of an MSI.
 
 ## What it does
 
-The view lists every property of the MSI with its value, for example `ProductCode`, `UpgradeCode`, `ProductVersion` and `Manufacturer`. The sidebar button shows for an MSI, an MSP, or an EXE wrapper with an MSI inside.
+The view lists every property of the MSI with its value, for example `ProductCode`, `UpgradeCode`, `ProductVersion` and `Manufacturer`. The grid fills only when the analyzed file is an MSI. An MSP or an EXE wrapper does not fill it. To read the properties of an MSI inside a wrapper, extract the MSI with 7-Zip and analyze it on its own.
 
 ## When to use it
 
@@ -12,7 +12,7 @@ Use it to find a property that you need for a transform, a detection method or a
 
 ## Requirements
 
-An analyzed MSI or an EXE with an MSI inside.
+An analyzed MSI.
 
 ## Steps
 
@@ -21,7 +21,7 @@ An analyzed MSI or an EXE with an MSI inside.
 
 ![The MSI Properties view](../images/view-msi.png)
 
-3. Use **Copy Summary** or the exports to take the data.
+3. Use **Copy JSON**, **Export CSV** or **Export HTML** to take the whole table. **Copy Summary** has only four named MSI properties.
 
 ## Options and settings of this page
 
@@ -38,7 +38,7 @@ An analyzed MSI or an EXE with an MSI inside.
 
 | Message or symptom | Cause | Fix |
 |---|---|---|
-| The button is missing. | The file is not an MSI and holds no MSI. | Open an MSI. |
+| The grid is empty. | The file is not an MSI. An MSP and an EXE wrapper do not fill it. | Open an MSI, or extract the MSI of a wrapper and open it. |
 
 ## Links
 

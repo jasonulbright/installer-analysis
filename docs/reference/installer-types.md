@@ -4,7 +4,7 @@ This page lists the installer formats that Installer Analysis detects.
 
 ## What it does
 
-The tool finds the type from binary signatures and the layout of ZIP files. It does not guess from the file extension.
+The tool finds the type from binary signatures and the layout of ZIP files. It also uses the file extension for `.msi` and `.msp`, and for some ZIP-based formats. The type is a detection. It is not a validation of the signature of the file.
 
 ## When to use it
 
@@ -18,7 +18,7 @@ None.
 
 | Group | Formats |
 |---|---|
-| Classic EXE | NSIS, Inno Setup, InstallShield, WiX Burn, 7-Zip SFX, BitRock |
+| Classic EXE | NSIS, Inno Setup, InstallShield, WiX Burn, Advanced Installer, WinRAR SFX, 7-Zip SFX, BitRock |
 | MSI family | MSI, MSP (Windows Installer patch) |
 | Modern packages | MSIX and APPX (and bundles), `.intunewin`, Chocolatey or NuGet `.nupkg` |
 | Script wrappers | PSAppDeployToolkit version 3 and 4, Squirrel or Electron, Velopack |
@@ -30,7 +30,7 @@ A file of another kind shows the type `Unknown`. The Overview then shows the ver
 - NSIS: the compiled script header, for example the install folder, the uninstaller path and the Add/Remove Programs values.
 - Inno Setup: the compiled `[Setup]` header, for example the application ID, the version, the folder and the privilege level.
 - WiX Burn: the `.wixburn` section.
-- MSI and MSP: the property tables. For a patch, the effective product data after the patch.
+- MSI: the property tables. MSP: the patch metadata. The tool infers a version from the patch metadata. This is not a calculation or a verification of the product data after the patch is applied.
 - `.nupkg`: the nuspec. MSIX: the manifest.
 - Velopack: the embedded nuspec, without 7-Zip.
 

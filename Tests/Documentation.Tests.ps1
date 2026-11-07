@@ -18,7 +18,7 @@ BeforeAll {
         }
     }
     $script:arrRef = @(foreach ($objPage in $script:arrPage) { Get-DocLink -Page $objPage })
-    $script:arrReadmeRef = @(Get-DocLink -Page (Get-Item -LiteralPath (Join-Path -Path $script:strRepositoryRoot -ChildPath 'README.md')) | Where-Object { $_.Target -match '^docs/' -or $_.Target -match '^\.?/?docs/' })
+    $script:arrReadmeRef = @(Get-DocLink -Page (Get-Item -LiteralPath (Join-Path -Path $script:strRepositoryRoot -ChildPath 'README.md')) | Where-Object { $_.Target -match '^\.?/?docs/' })
 }
 
 Describe 'User guide' {

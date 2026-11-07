@@ -8,7 +8,7 @@ The text has these blocks. A block shows only when the file has data for it.
 
 - **Source facts**: the type, the architecture, the size, the SHA-256 hash and the Authenticode signature with the signer.
 - **Deployment fields**: `DisplayName`, `DisplayVersion`, `Vendor`, the silent install command, the silent uninstall command and the predicted uninstall registry key, which is the key in Add/Remove Programs.
-- **MSI properties**: the product code, the upgrade code, the version and the manufacturer, for an MSI or an EXE wrapper with an MSI inside.
+- **MSI properties**: the product code, the upgrade code, the version and the manufacturer, for an MSI.
 - **Package metadata**: a block for the detected type, for example the nuspec of a `.nupkg` or the manifest of an MSIX.
 - **Compiled script data**: for NSIS and Inno Setup installers, the data that the compiled script holds, for example the install folder, the uninstall command and the privilege level.
 
@@ -33,7 +33,7 @@ An analyzed file. See [Getting started](../getting-started.md).
 ### Read an EXE
 
 1. Open an EXE. The type is one of the [Installer types](../reference/installer-types.md), or `Unknown`.
-2. For an unknown type the tool shows the file version data and the text `Unable to determine`. Try the switches that the text names, for example `/?` or `--help`.
+2. For an unknown type the tool shows the file version data and the text `Unable to determine`. The text names switches, for example `/?` or `--help`. Try them only with a file that you trust and in an isolated environment. The file can ignore them and start an installation or an uninstallation.
 
 ![The Overview of an EXE of an unknown type](../images/overview-exe.png)
 
@@ -65,7 +65,7 @@ This guide did not capture the menu: a menu is a separate window that the captur
 | Message or symptom | Cause | Fix |
 |---|---|---|
 | The Overview is empty. | No file is open. | Select **Browse...**. |
-| `Unable to determine` for the silent install command. | The type has no known silent switch. | Try `/?` and `--help` on the file. |
+| `Unable to determine` for the silent install command. | The type has no known silent switch. | Read the documentation of the vendor. Try `/?` and `--help` only with a trusted file in an isolated environment. |
 
 ## Links
 
