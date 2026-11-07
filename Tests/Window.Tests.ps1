@@ -4,6 +4,19 @@
 # 1440x900, and measured. The app-specific names live in WindowConfig.ps1.
 
 BeforeDiscovery {
+    # The guard decides before any runspace or window exists. A skipped run says why, once.
+    . "$PSScriptRoot\WindowHarness.ps1"
+    $script:WindowGuard = Test-WindowTestsAllowed
+    if (-not $script:WindowGuard.Allowed -and -not $env:SUITE_WINDOW_GUARD_REPORTED) { Write-Host ("Window tests skipped: {0}." -f $script:WindowGuard.Reason) }
+    if (-not $script:WindowGuard.Allowed) {
+        # Denied: evaluate nothing derived from the shell script. One placeholder case per list keeps the
+        # skipped Describe blocks visible as Skipped, and an empty case list never reaches Pester.
+        $script:Matrix = @(@{ Dark = $true; Theme = 'skipped'; W = 0; H = 0; Size = 'skipped' })
+        $script:ViewCases = @(@{ View = 'skipped' })
+        $script:NameCases = @(@{ Name = 'skipped' })
+        $script:DialogCases = @(@{ Index = 0 })
+        return
+    }
     . "$PSScriptRoot\WindowConfig.ps1"
     $script:Matrix = foreach ($dark in $true, $false) {
         foreach ($size in @(@(1024, 720), @(1440, 900))) {
@@ -21,8 +34,10 @@ BeforeDiscovery {
 }
 
 BeforeAll {
-    . "$PSScriptRoot\TestHelpers.ps1"
     . "$PSScriptRoot\WindowHarness.ps1"
+    # No runspace and no window unless the guard allows it. AfterAll tolerates "no session".
+    if (-not (Test-WindowTestsAllowed).Allowed) { return }
+    . "$PSScriptRoot\TestHelpers.ps1"
     . "$PSScriptRoot\KnownContrastDefects.ps1"
     . "$PSScriptRoot\WindowConfig.ps1"
     $script:Root = Split-Path -Parent $PSScriptRoot
@@ -58,9 +73,9 @@ BeforeAll {
     }
 }
 
-AfterAll { Close-WpfSession }
+AfterAll { if (Get-Command Close-WpfSession -ErrorAction SilentlyContinue) { Close-WpfSession } }
 
-Describe 'Main window XAML' {
+Describe 'Main window XAML' -Skip:(-not $script:WindowGuard.Allowed) {
     It 'loads as a MetroWindow with the app title and a minimum size that fits 1024x720' {
         $r = Invoke-WpfSta -Arguments @{ Xaml = $script:AppConfig.Xaml } -Script {
             $w = Open-TestWindow -XamlPath (Join-Path $Root $Arguments.Xaml)
@@ -106,7 +121,7 @@ Describe 'Main window XAML' {
     }
 }
 
-Describe 'Dialog windows' {
+Describe 'Dialog windows' -Skip:(-not $script:WindowGuard.Allowed) {
     It 'finds the dialog XAML in the script' {
         $script:DialogXaml.Count | Should -BeGreaterThan 0
     }
@@ -137,7 +152,7 @@ Describe 'Dialog windows' {
     }
 }
 
-Describe 'Layout <Theme> <Size>' -ForEach $script:Matrix {
+Describe 'Layout <Theme> <Size>' -ForEach $script:Matrix -Skip:(-not $script:WindowGuard.Allowed) {
     It 'has no clipped text in the <View> view' -ForEach $script:ViewCases {
         $m = ($script:Measured['{0}|{1}' -f $Theme, $Size] | Where-Object View -eq $View)
         $m.Clipped | ForEach-Object { '{0}: needs {1}px, has {2}px' -f $_.Text, $_.Needed, $_.Actual } | Should -BeNullOrEmpty
@@ -149,7 +164,7 @@ Describe 'Layout <Theme> <Size>' -ForEach $script:Matrix {
     }
 }
 
-Describe 'Contrast <Theme>' -ForEach @(@{ Theme = 'dark' }, @{ Theme = 'light' }) {
+Describe 'Contrast <Theme>' -ForEach @(@{ Theme = 'dark' }, @{ Theme = 'light' }) -Skip:(-not $script:WindowGuard.Allowed) {
     It 'shows every text at 4.5:1 (3:1 for large text) in the <View> view, except the listed known defects' -ForEach $script:ViewCases {
         $m = ($script:Measured['{0}|1440x900' -f $Theme] | Where-Object View -eq $View)
         $m.Text.Count | Should -BeGreaterThan 3
