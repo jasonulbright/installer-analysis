@@ -17,7 +17,7 @@
 
 .NOTES
     ScriptName : start-installeranalysis.ps1
-    Version    : 2026.11.06.0019
+    Version    : 2026.11.07.0020
     Updated    : 2026-11-06
 #>
 
@@ -1350,7 +1350,7 @@ function Invoke-AnalysisPipeline {
                     'Strings'          { [bool]$script:LastInterestingStrings }
                     default            { $true }
                 }
-                if (-not $currentViewHasData) { Set-ActiveView -View 'Overview' }
+                Set-ActiveView -View $(if ($currentViewHasData) { $script:ActiveView } else { 'Overview' })
 
                 $displayName = if ($script:LastDeployment -and $script:LastDeployment.DisplayName) {
                     $script:LastDeployment.DisplayName
