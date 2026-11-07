@@ -11,6 +11,8 @@ Measured 2026-11-06 with `Invoke-Checks.ps1` (Pester 5.7.1, PSScriptAnalyzer 1.2
 
 Run: `.\Invoke-Checks.ps1` (lint, tests, coverage floor 80%). It runs in CI on both hosts (`.github/workflows/checks.yml`).
 
+Window tests: `Window.Tests.ps1` opens windows only when `SUITE_ALLOW_WINDOW_TESTS` is `1`, and never on the dev PC (computer name `removed`), even with the opt-in. Otherwise Pester reports those tests as Skipped, not as Failed. Pester does not store the reason, so `Invoke-Checks.ps1` (and `Window.Tests.ps1`, when it runs alone) prints it to the console. `Test-WindowTestsAllowed` in `Tests/WindowHarness.ps1` makes the decision, reads the computer name from the machine (`[Environment]::MachineName`), and `Get-WpfSession` refuses to create a runspace when it says no. When the guard says no, `Window.Tests.ps1` evaluates nothing derived from the shell script. The CI workflow sets the variable in both jobs. `Invoke-Checks.ps1` prints one line, leaves the window test files out of the run, and the run still passes. The coverage floor is checked only when the window tests ran; a run without them prints the coverage as informational. `WindowGuard.Tests.ps1` tests the guard with injected values, scans every test file in the repository (nested folders included) for window code, checks that each top-level `Describe` of such a file carries the guard, and checks the `Get-WpfSession` refusal. It opens no window. `Shell.Logic.Tests.ps1` creates one `TreeView` control but no window and no dispatcher, so it is not a window test.
+
 ## Defects found and fixed
 
 Each defect has a failing test that was run against the code before the fix.
@@ -41,6 +43,7 @@ Each defect has a failing test that was run against the code before the fix.
 | Script calls | `Script.Contract.Tests.ps1` | Every call from the script and the module into an app function or SuiteCommon names only parameters that exist |
 | Release | `Release.Tests.ps1` | One version in the manifest, the script header and the CHANGELOG; manifest matches the module; every file parses; byte order mark for non-ASCII text |
 | Smoke | `Smoke.Tests.ps1` | The old smoke script as a Pester file: module load, each ZIP format, core pipeline, optional real installers |
+| Window guard | `WindowGuard.Tests.ps1` | The rule that lets window tests run (`Test-WindowTestsAllowed`): computer name and opt-in, with injected values. Every test file that opens a window uses the guard. Opens no window |
 | Windows | `Window.Tests.ps1` | Main window with its seven views filled with sample rows: names, titles, dialog XAML, no clipped text and nothing off screen at 1024x720 and 1440x900 in both themes, text and control contrast |
 
 ## Not covered, and why

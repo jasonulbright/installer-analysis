@@ -1,5 +1,20 @@
 # Changelog
 
+## [2026.11.07.0021] - 2026-11-07
+
+## 1 shared library refresh and window tests that cannot steal focus
+
+### Added
+
+- Skip the window tests on the development PC and without the opt-in. The console shows the reason.
+- Add tests that check the guard and that every window test carries it.
+- Print one line when Invoke-Checks skips the window tests.
+
+### Changed
+
+- Update the shared library to version 2026.11.07.0075.
+- Check the coverage floor only when the window tests run.
+
 ## [2026.11.07.0020] - 2026-11-07
 
 ## 1 fix and a user guide
