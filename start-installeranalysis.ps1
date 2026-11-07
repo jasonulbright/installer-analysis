@@ -17,8 +17,8 @@
 
 .NOTES
     ScriptName : start-installeranalysis.ps1
-    Version    : 2026.10.25.0018
-    Updated    : 2026-09-21
+    Version    : 2026.11.06.0019
+    Updated    : 2026-11-06
 #>
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '', Justification='Flat-.ps1 GetNewClosure strips $script: access; $global: survives closure scope-strip and keeps shared mutable state (Prefs, PrefsPath, crash log scriptblock) reachable from closure-captured handlers.')]
@@ -52,8 +52,10 @@ if ([System.Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
     # user. It does not change system-wide execution policy and does not lower
     # any other security boundary -- WPF requires an STA apartment, so this is
     # a self-relaunch of the script the user already chose to run.
-    $fwd   = @('-NoProfile','-ExecutionPolicy','Bypass','-STA','-File',$PSCommandPath)
-    if (-not [string]::IsNullOrWhiteSpace($StartupFile)) { $fwd += @('-StartupFile', $StartupFile) }
+    # Start-Process joins the elements with spaces and adds no quotes, so a
+    # path that holds a space needs its own quotes.
+    $fwd   = @('-NoProfile','-ExecutionPolicy','Bypass','-STA','-File',('"{0}"' -f $PSCommandPath))
+    if (-not [string]::IsNullOrWhiteSpace($StartupFile)) { $fwd += @('-StartupFile', ('"{0}"' -f $StartupFile)) }
     Start-Process -FilePath $psExe -ArgumentList $fwd | Out-Null
     try { Stop-Transcript | Out-Null } catch { $null = $_ }
     exit 0
@@ -1914,6 +1916,48 @@ $btnExportHtml.Add_Click({
     }
 })
 
+function Invoke-PayloadExtractAll {
+    <#
+    .SYNOPSIS
+        Extracts the whole payload of the current file into a folder and
+        reports the real result in the log and the status bar.
+    #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Extracts to a folder the user picked; the caller confirms a non-empty target.')]
+    param([Parameter(Mandatory)][string]$Target)
+
+    $sevenZip = $global:Prefs['SevenZipPath']
+    if (-not $sevenZip -or -not (Test-Path -LiteralPath $sevenZip)) { $sevenZip = Find-7ZipPath }
+    if (-not $sevenZip) {
+        Add-LogLine 'Extract Payload: 7z.exe not found.'
+        return
+    }
+    Set-StatusText ('Extracting to {0}' -f $Target)
+    Add-LogLine    ('Extract Payload: -> {0}' -f $Target)
+
+    # Show the progress overlay during the extract. 7z.exe on a 300MB
+    # installer can run for minutes; without the overlay the shell looks
+    # frozen. Same spinner used by Invoke-AnalysisPipeline.
+    $txtProgressTitle.Text = 'Extracting payload...'
+    $txtProgressStep.Text  = ('Running 7z.exe x "{0}" -o"{1}"' -f [System.IO.Path]::GetFileName($script:LastFileInfo.FullPath), $Target)
+    $progressOverlay.Visibility = [System.Windows.Visibility]::Visible
+    $window.Dispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Render)
+
+    try {
+        $extractedTo = Expand-InstallerPayload -Path $script:LastFileInfo.FullPath -OutputPath $Target -SevenZipPath $sevenZip
+        if ($extractedTo) {
+            Add-LogLine    'Extract Payload: complete.'
+            Set-StatusText ('Extracted: {0}' -f $Target)
+        } else {
+            Add-LogLine    'Extract Payload failed: 7-Zip reported an error. Some or all files were not extracted.'
+            Set-StatusText 'Extract failed: 7-Zip reported an error.'
+        }
+    } catch {
+        Add-LogLine ('Extract Payload failed: {0}' -f $_.Exception.Message)
+    } finally {
+        $progressOverlay.Visibility = [System.Windows.Visibility]::Collapsed
+    }
+}
+
 $btnExtractAll.Add_Click({
     if (-not $script:LastFileInfo -or -not $script:LastPayload) {
         Add-LogLine 'Extract Payload: no payload listed for the current file.'
@@ -1944,32 +1988,7 @@ $btnExtractAll.Add_Click({
         }
     }
 
-    $sevenZip = $global:Prefs['SevenZipPath']
-    if (-not $sevenZip -or -not (Test-Path -LiteralPath $sevenZip)) { $sevenZip = Find-7ZipPath }
-    if (-not $sevenZip) {
-        Add-LogLine 'Extract Payload: 7z.exe not found.'
-        return
-    }
-    Set-StatusText ('Extracting to {0}' -f $target)
-    Add-LogLine    ('Extract Payload: -> {0}' -f $target)
-
-    # Show the progress overlay during the extract. 7z.exe on a 300MB
-    # installer can run for minutes; without the overlay the shell looks
-    # frozen. Same spinner used by Invoke-AnalysisPipeline.
-    $txtProgressTitle.Text = 'Extracting payload...'
-    $txtProgressStep.Text  = ('Running 7z.exe x "{0}" -o"{1}"' -f [System.IO.Path]::GetFileName($script:LastFileInfo.FullPath), $target)
-    $progressOverlay.Visibility = [System.Windows.Visibility]::Visible
-    $window.Dispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Render)
-
-    try {
-        Expand-InstallerPayload -Path $script:LastFileInfo.FullPath -OutputPath $target -SevenZipPath $sevenZip
-        Add-LogLine    'Extract Payload: complete.'
-        Set-StatusText ('Extracted: {0}' -f $target)
-    } catch {
-        Add-LogLine ('Extract Payload failed: {0}' -f $_.Exception.Message)
-    } finally {
-        $progressOverlay.Visibility = [System.Windows.Visibility]::Collapsed
-    }
+    Invoke-PayloadExtractAll -Target $target
 })
 
 $btnOptions.Add_Click({
@@ -2132,9 +2151,11 @@ function Open-EmbeddedInNewWindow {
     # same script under the current user. It does not change system-wide
     # execution policy; WPF requires STA, and this re-launches the script the
     # user already chose to run.
-    $args  = @('-NoProfile','-ExecutionPolicy','Bypass','-STA','-File', $PSCommandPath, '-StartupFile', $extracted)
+    # Start-Process adds no quotes: quote the paths, which hold spaces when the
+    # user name or the install folder does.
+    $relaunchArgs = @('-NoProfile','-ExecutionPolicy','Bypass','-STA','-File', ('"{0}"' -f $PSCommandPath), '-StartupFile', ('"{0}"' -f $extracted))
     try {
-        Start-Process -FilePath $psExe -ArgumentList $args | Out-Null
+        Start-Process -FilePath $psExe -ArgumentList $relaunchArgs | Out-Null
         Add-LogLine ('Spawned analyzer for {0}' -f $extracted)
     } catch {
         Add-LogLine ('Open in new window failed: {0}' -f $_.Exception.Message)

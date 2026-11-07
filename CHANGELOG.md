@@ -1,5 +1,20 @@
 # Changelog
 
+## [2026.11.06.0019] - 2026-11-06
+
+## 8 fixes
+
+### Fixed
+
+- Report a failed payload extraction as a failure instead of as complete.
+- Stop a single-entry extraction from returning a file left by an earlier run.
+- Read MSI properties and summary with the bundled MSI module.
+- Name the MSI platform from the Template platform only, and name ARM64 packages.
+- Open an inner installer in a new window when a path contains spaces.
+- Start again under STA when the install path contains spaces.
+- Fix a security issue in the CSV report export.
+- Report an error when the HTML report cannot be written.
+
 ## [2026.10.25.0018] - 2026-10-25
 
 ## 2 fixes

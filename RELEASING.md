@@ -2,10 +2,11 @@
 
 ## 1. Test
 
-Run the full suite under Windows PowerShell 5.1 with Pester 5. The release stops if a test fails. Never run the suite under PowerShell 7.
+Run the checks under Windows PowerShell 5.1 and under PowerShell 7. Each run does the lint, the Pester suite and the coverage floor. The release stops if either run fails. The same two runs happen in CI (`.github/workflows/checks.yml`).
 
 ```powershell
-powershell -NoProfile -Command "Import-Module Pester -MinimumVersion 5.0; $r = Invoke-Pester -Path Module, Tests -PassThru -Output None; 'passed {0} failed {1}' -f $r.PassedCount, $r.FailedCount"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Invoke-Checks.ps1
+pwsh -NoProfile -File .\Invoke-Checks.ps1
 ```
 
 ## 2. Version
@@ -30,11 +31,11 @@ C:\projects\app-packager-suite\sync-suitecommon.ps1 -Consumer C:\projects\instal
 
 ## 4. Commit, tag, and package
 
-Commit to `master`. Every commit to `master` is part of a release: the suite installer build refuses a component whose `master` is ahead of its latest tag. Tag the commit `v<ver>` with an annotated tag. Build the zip from the tag. The zip excludes the tests and this file.
+Commit to `master`. Every commit to `master` is part of a release: the suite installer build refuses a component whose `master` is ahead of its latest tag. Tag the commit `v<ver>` with an annotated tag. Build the zip from the tag. The zip excludes the tests, the check script, the CI workflow and this file.
 
 ```bash
 git tag -a v<ver> -m v<ver>
-git archive --format=zip -o InstallerAnalysis-<ver>.zip v<ver> -- . ':(exclude)Tests' ':(exclude)*.Tests.ps1' ':(exclude)RELEASING.md'
+git archive --format=zip -o InstallerAnalysis-<ver>.zip v<ver> -- . ':(exclude)Tests' ':(exclude)*.Tests.ps1' ':(exclude)RELEASING.md' ':(exclude)Invoke-Checks.ps1' ':(exclude).github'
 sha256sum InstallerAnalysis-<ver>.zip | sed 's/ \*/  /' > checksums.txt
 ```
 
