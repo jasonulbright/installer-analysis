@@ -296,6 +296,7 @@ function script:Find-SquirrelNupkgRefs {
                 }
             } catch [System.Text.RegularExpressions.RegexMatchTimeoutException] {
                 # Window-level safety net. Skip this occurrence and continue.
+                $null = $_
             }
             $offset = $end
         }
@@ -4293,7 +4294,9 @@ function Get-MsiProperties {
     if (Test-MsiModuleAvailable) {
         try {
             Write-Log "Using MSI module for property extraction"
-            Import-Module MSI -ErrorAction Stop
+            # The shell loads the vendored copy by path, so a by-name import
+            # would not find it; import only when the module is not loaded.
+            if (-not (Get-Module -Name MSI)) { Import-Module MSI -ErrorAction Stop }
             $props = Get-MSIProperty -Path $MsiPath -ErrorAction Stop
             $result = [ordered]@{}
             foreach ($p in $props) {
@@ -4346,6 +4349,26 @@ function Get-MsiProperties {
     }
 }
 
+function script:ConvertTo-MsiArchitecture {
+    <#
+    .SYNOPSIS
+        Names the platform of an MSI from its Template summary property.
+    .DESCRIPTION
+        The Template is "<platform>;<language ids>", for example "x64;1033".
+        Only the platform part decides: a language id such as 2064 contains
+        the digits 64 and must not make a 32-bit package look like x64.
+        Returns x64, x86 or arm64, or the Template text when it names no
+        known platform.
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Template)
+
+    $platform = ([string]$Template -split ';')[0].Trim()
+    if ($platform -match 'Arm64') { return 'arm64' }
+    if ($platform -match 'x64|Intel64|64') { return 'x64' }
+    if ($platform -match 'Intel|x86') { return 'x86' }
+    return [string]$Template
+}
+
 function Get-MsiSummaryInfo {
     <#
     .SYNOPSIS
@@ -4358,8 +4381,10 @@ function Get-MsiSummaryInfo {
     # Try PSGallery MSI module first
     if (Test-MsiModuleAvailable) {
         try {
-            Import-Module MSI -ErrorAction Stop
-            $summary = Get-MSISummaryInfo -Path $MsiPath -ErrorAction Stop
+            if (-not (Get-Module -Name MSI)) { Import-Module MSI -ErrorAction Stop }
+            # Command names are not case sensitive: an unqualified Get-MSISummaryInfo
+            # is this function. The module-qualified name reaches the MSI module.
+            $summary = MSI\Get-MSISummaryInfo -Path $MsiPath -ErrorAction Stop
             return [PSCustomObject]@{
                 Template     = $summary.Template
                 RevisionNumber = $summary.RevisionNumber
@@ -4367,7 +4392,7 @@ function Get-MsiSummaryInfo {
                 Author       = $summary.Author
                 Keywords     = $summary.Keywords
                 Comments     = $summary.Comments
-                Architecture = if ($summary.Template -match 'x64|Intel64|64') { 'x64' } elseif ($summary.Template -match 'Intel|x86') { 'x86' } else { $summary.Template }
+                Architecture = ConvertTo-MsiArchitecture -Template ([string]$summary.Template)
             }
         }
         catch {
@@ -4394,7 +4419,7 @@ function Get-MsiSummaryInfo {
             Author         = [string]$author
             Keywords       = ''
             Comments       = ''
-            Architecture   = if ([string]$template -match 'x64|Intel64|64') { 'x64' } elseif ([string]$template -match 'Intel|x86') { 'x86' } else { [string]$template }
+            Architecture   = ConvertTo-MsiArchitecture -Template ([string]$template)
         }
     }
     catch {
@@ -5262,6 +5287,11 @@ function Expand-PayloadEntry {
         New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
     }
 
+    # Remember what the folder holds before the run, so that the fallback
+    # below can tell a file of this run from one of an earlier run.
+    $existingBefore = @{}
+    foreach ($f in @(Get-ChildItem -LiteralPath $OutputDir -File -ErrorAction SilentlyContinue)) { $existingBefore[$f.FullName] = $true }
+
     # CRITICAL: -i!Name MUST be quoted at the argv level. Without the quote
     # 7-Zip splits the argument on any whitespace in EntryName, silently
     # mis-matching the include pattern and emitting "No files to process"
@@ -5288,9 +5318,12 @@ function Expand-PayloadEntry {
     $candidate = Join-Path $OutputDir $leaf
     if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
 
-    # 7z sometimes sanitizes path components; fall back to "newest file
-    # in OutputDir" as a best-effort recovery.
+    # 7z sometimes sanitizes path components; fall back to the newest file
+    # that this run added to OutputDir. A file that was already there is not
+    # a result: 7-Zip exits with 0 and extracts nothing when the filter
+    # matches no entry.
     $newest = Get-ChildItem -LiteralPath $OutputDir -File -ErrorAction SilentlyContinue |
+        Where-Object { -not $existingBefore.ContainsKey($_.FullName) } |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($newest) { return $newest.FullName }
     return $null
@@ -5327,10 +5360,15 @@ function Expand-InstallerPayload {
     $proc = Start-Process -FilePath $SevenZipPath -ArgumentList @('x', "`"$Path`"", "-o`"$OutputPath`"", '-y') `
         -Wait -NoNewWindow -PassThru
 
+    # 7-Zip exit codes: 0 success, 1 warning (some files skipped), 2 and above
+    # are errors. An error must not look like a finished extraction.
     if ($proc.ExitCode -eq 0) {
         Write-Log "Extraction complete"
+    } elseif ($proc.ExitCode -eq 1) {
+        Write-Log "7z.exe finished with warnings (exit code 1); some entries may be missing in $OutputPath" -Level WARN
     } else {
-        Write-Log "7z.exe exited with code $($proc.ExitCode)" -Level WARN
+        Write-Log "7z.exe failed with exit code $($proc.ExitCode); extraction to $OutputPath is incomplete" -Level WARN
+        return $null
     }
 
     return $OutputPath
@@ -5607,6 +5645,25 @@ function Get-InterestingStrings {
 # Export
 # ---------------------------------------------------------------------------
 
+function script:ConvertTo-SafeCsvCell {
+    <#
+    .SYNOPSIS
+        Stops a spreadsheet from running a cell as a formula.
+    .DESCRIPTION
+        The values come from the installer under analysis, so they are not
+        trusted. Excel and other spreadsheet programs run a cell that starts
+        with =, +, - or @ (or with a tab or a carriage return) as a formula.
+        Such a cell gets a leading single quote, which the spreadsheet shows
+        as text. A plain number stays as it is.
+    #>
+    param([AllowNull()][object]$Value)
+
+    $text = [string]$Value
+    if ($text -match '^[-+]?\d+([.,]\d+)?$') { return $text }
+    if ($text -match '^[=+\-@\t\r]') { return "'" + $text }
+    return $text
+}
+
 function Export-AnalysisReport {
     <#
     .SYNOPSIS
@@ -5625,7 +5682,7 @@ function Export-AnalysisReport {
     $rows = @()
     foreach ($row in $DataTable.Rows) {
         $obj = [ordered]@{}
-        foreach ($col in $DataTable.Columns) { $obj[$col.ColumnName] = $row[$col.ColumnName] }
+        foreach ($col in $DataTable.Columns) { $obj[$col.ColumnName] = ConvertTo-SafeCsvCell -Value $row[$col.ColumnName] }
         $rows += [PSCustomObject]$obj
     }
     $rows | Export-Csv -LiteralPath $OutputPath -NoTypeInformation -Encoding UTF8
@@ -5645,7 +5702,7 @@ function Export-AnalysisHtml {
 
     $parentDir = Split-Path -Path $OutputPath -Parent
     if ($parentDir -and -not (Test-Path -LiteralPath $parentDir)) {
-        New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+        New-Item -ItemType Directory -Path $parentDir -Force -ErrorAction Stop | Out-Null
     }
 
     $css = @(
@@ -5681,7 +5738,7 @@ function Export-AnalysisHtml {
         '</body></html>'
     ) -join "`r`n"
 
-    Set-Content -LiteralPath $OutputPath -Value $html -Encoding UTF8
+    Set-Content -LiteralPath $OutputPath -Value $html -Encoding UTF8 -ErrorAction Stop
     Write-Log "Exported HTML to $OutputPath"
 }
 
@@ -5847,7 +5904,7 @@ function New-AnalysisSummaryText {
                 $arch = [string]$InnerMsiData.MsiArchitecture
             }
             $is32 = ($arch -match '^(x86|Intel)$')
-            $is64 = ($arch -match '^(x64|Intel64|AMD64)$')
+            $is64 = ($arch -match '^(x64|Intel64|AMD64|arm64)$')
             if ($is32) {
                 $lines += "  UninstallRegistryKey:    HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\$detectionPc"
             } elseif ($is64) {
