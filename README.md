@@ -17,6 +17,10 @@ installer type, architecture, signature status, deployment fields
 lines, predicted ARP key), and format-specific package metadata where the
 installer carries it.
 
+## User guide
+
+The [user guide](docs/index.md) walks every view, dialog and setting with images of the running window. [Capture the images again](docs/reference/capture-images.md) shows the one command that regenerates them.
+
 ## Scope
 
 This tool reads installer metadata only. It does not bypass product
