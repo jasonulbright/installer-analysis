@@ -1,5 +1,18 @@
 # Changelog
 
+## [2026.11.07.0020] - 2026-11-07
+
+## 1 fix and a user guide
+
+### Fixed
+
+- Show the description of the open view in the page header after an analysis. The header kept the start hint to drag an installer onto the window.
+
+### Added
+
+- Add the user guide (docs/index.md) with images of the running window.
+- Add tools/guide-capture, one command that regenerates every image of the guide on a lab computer.
+
 ## [2026.11.06.0019] - 2026-11-06
 
 ## 8 fixes
