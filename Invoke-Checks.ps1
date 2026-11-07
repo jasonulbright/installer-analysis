@@ -18,7 +18,9 @@
     Minimum percent of module commands that the tests run. Default 80.
 
 .PARAMETER SkipWindow
-    Leave out Tests\Window.Tests.ps1, which opens windows and needs a desktop.
+    Leave out Tests\Window.Tests.ps1, which opens windows and needs a desktop. It is also left out,
+    with one line of explanation, on the dev PC (AYW) and whenever SUITE_ALLOW_WINDOW_TESTS is not 1.
+    CI sets it to 1. Tests\WindowGuard.Tests.ps1 holds the rule.
 
 .PARAMETER SkipLint
     Leave out PSScriptAnalyzer.
@@ -68,7 +70,16 @@ $cfg = New-PesterConfiguration
 $testFiles = @(Get-ChildItem -LiteralPath $root -Recurse -Filter '*.Tests.ps1' -File |
         Where-Object { $_.FullName -notlike '*\Tests\Lab\*' -and $_.FullName -notlike '*\.git\*' -and $_.FullName -notlike '*\TestOutput\*' })
 if ($testFiles.Count -eq 0) { Write-Host 'No test file found.'; exit 1 }
-if ($SkipWindow) { $testFiles = @($testFiles | Where-Object { $_.Name -ne 'Window.Tests.ps1' }) }
+# Window tests open windows. They run only where the guard allows it (see Tests\WindowHarness.ps1).
+. (Join-Path $root 'Tests\WindowHarness.ps1')
+$windowGuard = Test-WindowTestsAllowed
+$windowTestFiles = 'Window.Tests.ps1'
+$windowTestsRun = $windowGuard.Allowed -and -not $SkipWindow
+if (-not $windowGuard.Allowed) {
+    if ($windowGuard.Reason -like 'dev PC*') { Write-Host 'Window tests skipped: dev PC (AYW). Run them on CM01/CLIENT01 or in CI.' }
+    else { Write-Host 'Window tests skipped: SUITE_ALLOW_WINDOW_TESTS is not 1.' }
+}
+if (-not $windowTestsRun) { $testFiles = @($testFiles | Where-Object { $windowTestFiles -notcontains $_.Name }) }
 $cfg.Run.Path = $testFiles.FullName
 $cfg.Run.PassThru = $true
 $cfg.Output.Verbosity = 'Minimal'
@@ -81,12 +92,14 @@ $cov = $result.CodeCoverage
 # Keep the unrounded value for the floor: 79.96 must not round up to 80.
 $pct = if ($cov -and $cov.CommandsAnalyzedCount -gt 0) { 100 * $cov.CommandsExecutedCount / $cov.CommandsAnalyzedCount } else { 0 }
 Write-Host ('Tests: {0} run, {1} passed, {2} failed, {3} skipped' -f $result.TotalCount, $result.PassedCount, $result.FailedCount, $result.SkippedCount)
-Write-Host ('Coverage: {0:N1}% of {1} module commands (floor {2}%)' -f $pct, $cov.CommandsAnalyzedCount, $CoverageFloor)
+# The floor counts only when the window tests ran. Without them the coverage is informational.
+if ($windowTestsRun) { Write-Host ('Coverage: {0:N1}% of {1} module commands (floor {2}%)' -f $pct, $cov.CommandsAnalyzedCount, $CoverageFloor) }
+else { Write-Host ('Coverage: {0:N1}% of {1} module commands (informational: the floor of {2}% is checked only when the window tests run)' -f $pct, $cov.CommandsAnalyzedCount, $CoverageFloor) }
 
 if ($result.TotalCount -eq 0) { Write-Host 'No test ran.'; $failed = $true }
 if ($result.FailedCount -gt 0) { $failed = $true }
 if ($result.Result -ne 'Passed') { Write-Host ('Pester result: {0}' -f $result.Result); $failed = $true }
-if ($pct -lt $CoverageFloor) { Write-Host ('Coverage {0:N1}% is below the floor of {1}%.' -f $pct, $CoverageFloor); $failed = $true }
+if ($windowTestsRun -and $pct -lt $CoverageFloor) { Write-Host ('Coverage {0:N1}% is below the floor of {1}%.' -f $pct, $CoverageFloor); $failed = $true }
 
 if ($failed) { Write-Host 'CHECKS FAILED'; exit 1 }
 Write-Host 'CHECKS PASSED'

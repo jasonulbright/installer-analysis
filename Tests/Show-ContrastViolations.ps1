@@ -10,6 +10,8 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '', Justification='Console tool.')]
 param()
 . "$PSScriptRoot\WindowHarness.ps1"
+$guard = Test-WindowTestsAllowed
+if (-not $guard.Allowed) { Write-Host ("Window tools skipped: {0}" -f $guard.Reason); return }
 . "$PSScriptRoot\WindowConfig.ps1"
 . "$PSScriptRoot\KnownContrastDefects.ps1"
 try {
