@@ -1,5 +1,13 @@
 # Changelog
 
+## [2026.11.07.0022] - 2026-11-07
+
+## 1 change to the window-test guard
+
+### Changed
+
+- Run window tests only when the SUITE_ALLOW_WINDOW_TESTS opt-in is 1.
+
 ## [2026.11.07.0021] - 2026-11-07
 
 ## 1 shared library refresh and window tests that cannot steal focus
