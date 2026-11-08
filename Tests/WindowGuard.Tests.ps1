@@ -2,6 +2,7 @@
 # Tests of the window-test guard (Test-WindowTestsAllowed in WindowHarness.ps1).
 # The guard runs window tests only when SUITE_ALLOW_WINDOW_TESTS is 1. Most tests
 # inject the opt-in value. This file opens no window.
+
 BeforeDiscovery {
     # Every other test file that can open a window must carry the guard.
     # The scan covers the whole repository, nested folders and lab folders included.
