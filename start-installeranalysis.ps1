@@ -1494,7 +1494,6 @@ function New-LoggingPanel {
 
     $btn = New-Object System.Windows.Controls.Button
     $btn.Content = 'Open Logs Folder'
-    $btn.Padding = [System.Windows.Thickness]::new(12,0,12,0)
     $btn.SetResourceReference([System.Windows.Controls.Button]::StyleProperty, 'DialogButton')
     # Factory-returned handler needs GetNewClosure to see the captured
     # $localLogDir path when the click fires.
@@ -1642,13 +1641,13 @@ function Show-InstallerAnalysisOptions {
                 </Style.Triggers>
             </Style>
             <!-- The one secondary dialog style: a gray fill, the theme text color and a visible border. Cancel, Browse and
-                 Open Logs Folder use it, at one size. The primary dialog style is DialogAccentButton. No other dialog
+                 Open Logs Folder use it, at one size (MinWidth fits the longest label). The primary dialog style is DialogAccentButton. No other dialog
                  button style sets a Background. -->
             <Style x:Key="DialogButton" TargetType="Button" BasedOn="{StaticResource ThemedButtonStyle}">
                 <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Gray10}"/>
                 <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
                 <Setter Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
-                <Setter Property="MinWidth" Value="90"/>
+                <Setter Property="MinWidth" Value="140"/>
                 <Setter Property="Height" Value="32"/>
                 <Setter Property="Margin" Value="0,0,8,0"/>
             </Style>
@@ -1659,7 +1658,7 @@ function Show-InstallerAnalysisOptions {
                 <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Highlight}"/>
                 <Setter Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
                 <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/>
-                <Setter Property="MinWidth" Value="90"/>
+                <Setter Property="MinWidth" Value="140"/>
                 <Setter Property="Height" Value="32"/>
                 <Setter Property="Margin" Value="0,0,8,0"/>
                 <Style.Triggers>
@@ -1677,7 +1676,7 @@ function Show-InstallerAnalysisOptions {
                 <Setter Property="Controls:ItemHelper.DisabledForegroundBrush" Value="{DynamicResource MahApps.Brushes.Gray.MouseOver}"/>
                 <Style.Triggers>
                     <Trigger Property="IsSelected" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Accent}"/>
+                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Highlight}"/>
                         <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/>
                     </Trigger>
                 </Style.Triggers>

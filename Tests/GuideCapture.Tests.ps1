@@ -109,6 +109,7 @@ Describe 'Capture scripts' {
         $iUnregister = $tail.IndexOf('Unregister-ScheduledTask')
         $iFolder = $tail.IndexOf('Remove-Item $r -Recurse')
         $iLock = $tail.IndexOf('Remove-Item -LiteralPath $path -Force')
+        $tail | Should -Match 'Get-Content -LiteralPath \$path -Raw -ErrorAction SilentlyContinue\)\)\.Trim\(\)'
         $iStop | Should -BeGreaterThan -1
         $iKill | Should -BeGreaterThan $iStop
         $iUnregister | Should -BeGreaterThan $iKill
@@ -118,8 +119,10 @@ Describe 'Capture scripts' {
 
     It 'does not spin on a stale lock, re-reads the age before the delete and touches the lock while it runs' {
         $script:InvokeText | Should -Match '\$again = Get-Item -LiteralPath \$path'
+        $script:InvokeText | Should -Match 'Move-Item -LiteralPath \$path -Destination \$stale -ErrorAction Stop'
+        $script:InvokeText | Should -Match '\$stale = "\$path\.stale\.\$token"'
+        $script:InvokeText | Should -Not -Match '(?s)\$again = Get-Item.{0,400}Remove-Item -LiteralPath \$path\b'
         $script:InvokeText | Should -Match 'if \(-not \(Test-Path -LiteralPath \$path\)\) \{ continue \}'
-        $script:InvokeText | Should -Not -Match '(?s)Remove-Item -LiteralPath \$path -Force -ErrorAction SilentlyContinue\s*\r?\n\s*continue'
         $script:InvokeText | Should -Match '\.LastWriteTime = Get-Date'
     }
 

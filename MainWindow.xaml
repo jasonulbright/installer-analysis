@@ -80,7 +80,7 @@
                 <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
                 <Style.Triggers>
                     <Trigger Property="IsSelected" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Accent}"/>
+                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Highlight}"/>
                         <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/>
                     </Trigger>
                 </Style.Triggers>
@@ -118,7 +118,7 @@
                         <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Control.Background}"/>
                     </Trigger>
                     <Trigger Property="IsSelected" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Accent}"/>
+                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Highlight}"/>
                         <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/>
                     </Trigger>
                 </Style.Triggers>
@@ -148,7 +148,7 @@
                 <Setter Property="Padding" Value="6,0,6,0"/>
                 <Style.Triggers>
                     <Trigger Property="IsSelected" Value="True">
-                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Accent}"/>
+                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Highlight}"/>
                         <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/>
                     </Trigger>
                 </Style.Triggers>
@@ -595,7 +595,6 @@
                         Visibility="Collapsed"
                         IsHitTestVisible="False"
                         Background="{DynamicResource MahApps.Brushes.Accent}"
-                        Opacity="0.85"
                         BorderBrush="{DynamicResource MahApps.Brushes.ThemeForeground}"
                         BorderThickness="2"
                         Margin="8,8,8,0">
@@ -603,12 +602,12 @@
                         <TextBlock Text="Drop Installer to Analyze"
                                    FontSize="20" FontWeight="Bold"
                                    HorizontalAlignment="Center"
-                                   Foreground="White"/>
+                                   Foreground="{DynamicResource MahApps.Brushes.IdealForeground}"/>
                         <TextBlock Text="EXE, MSI, MSIX / MSIX Bundle, .intunewin, .nupkg, PSADT zip, Squirrel Setup.exe"
                                    FontSize="11"
                                    HorizontalAlignment="Center"
                                    Margin="0,8,0,0"
-                                   Foreground="White"/>
+                                   Foreground="{DynamicResource MahApps.Brushes.IdealForeground}"/>
                     </StackPanel>
                 </Border>
 

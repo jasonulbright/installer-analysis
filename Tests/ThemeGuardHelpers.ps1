@@ -481,6 +481,13 @@ function Get-DialogButtonViolation {
     foreach ($objSetter in @(Get-SetterChild -Node $hashStyle['DialogButton'] -LeafPattern '(Background|Foreground|Brush)$')) {
         if ($objSetter.GetAttribute('Value') -notmatch '^\{DynamicResource MahApps\.Brushes\.') { [void]$listFound.Add(('{0}: DialogButton sets {1} to a value that is not a theme resource' -f $Source, $objSetter.GetAttribute('Property'))) }
     }
+    # A dialog button takes its size from the style only: no own size, padding or font size.
+    foreach ($objButton in @($xml.SelectNodes("//*[local-name()='Button']"))) {
+        if ($arrAllowed -notcontains (Get-ResourceKey $objButton.GetAttribute('Style'))) { continue }
+        foreach ($strAttribute in 'Width', 'MinWidth', 'MaxWidth', 'Height', 'MinHeight', 'MaxHeight', 'Padding', 'FontSize') {
+            if ($objButton.HasAttribute($strAttribute)) { [void]$listFound.Add(('{0}: dialog button {1} sets {2} itself' -f $Source, $objButton.GetAttribute('Name', $script:strXamlNamespace), $strAttribute)) }
+        }
+    }
     foreach ($objButton in @($xml.SelectNodes("//*[local-name()='Button'][@IsCancel='True']"))) {
         if ((Get-ResourceKey $objButton.GetAttribute('Style')) -ne 'DialogButton') { [void]$listFound.Add(('{0}: Cancel button {1} does not take DialogButton' -f $Source, $objButton.GetAttribute('Name', $script:strXamlNamespace))) }
     }
@@ -509,6 +516,7 @@ function Get-CodeButtonViolation {
         foreach ($objSet in $arrSet) {
             $strMember = [string]$objSet.Left.Member.Value
             if ($strMember -in 'Background', 'Foreground', 'BorderBrush') { '{0}:{1}: Button ${2} sets {3} in code' -f (Split-Path -Leaf $Path), $objSet.Extent.StartLineNumber, $strVariable, $strMember }
+            if ($strMember -in 'Width', 'MinWidth', 'MaxWidth', 'Height', 'MinHeight', 'MaxHeight', 'Padding' -and @($AllowedKey | Where-Object { $_ -like 'Dialog*' }).Count -gt 0 -and @($arrStyle | Where-Object { $_.Arguments[1].Extent.Text -match "^'Dialog" }).Count -gt 0) { '{0}:{1}: dialog button ${2} sets {3} in code' -f (Split-Path -Leaf $Path), $objSet.Extent.StartLineNumber, $strVariable, $strMember }
             if ($strMember -eq 'FontWeight' -and $objSet.Right.Extent.Text -notmatch 'FontWeights\]::Bold\b') { '{0}:{1}: Button ${2} sets a font weight other than Bold' -f (Split-Path -Leaf $Path), $objSet.Extent.StartLineNumber, $strVariable }
         }
     }
@@ -577,4 +585,39 @@ function Invoke-StaBlock {
         if ($objShell) { $objShell.Dispose() }
         $objRunspace.Dispose()
     }
+}
+
+# Returns one text per element outside a Style and a ControlTemplate that sets a literal color (a hex value or a bare color
+# name) as Foreground, Background, BorderBrush, Fill or Stroke, and one text per element that has an Opacity attribute and a
+# blue Background (a faded blue box lowers the contrast of its text). Values in braces are resources.
+function Get-ElementColorViolation {
+    param([string]$Text, [string]$Source)
+    [xml]$xml = $Text
+    $listFound = New-Object System.Collections.Generic.List[string]
+    foreach ($objElement in @($xml.SelectNodes('//*'))) {
+        $boolInside = $false
+        $objParent = $objElement
+        while ($objParent -and $objParent.NodeType -eq 'Element') {
+            if ($objParent.LocalName -in 'Style', 'ControlTemplate', 'DataTemplate') { $boolInside = $true; break }
+            $objParent = $objParent.ParentNode
+        }
+        if ($boolInside) { continue }
+        foreach ($objAttribute in @($objElement.Attributes)) {
+            if ((Get-PropertyLeaf $objAttribute.Name) -match '^(Foreground|Background|BorderBrush|Fill|Stroke)$' -and ($objAttribute.Value -match '^\s*#[0-9A-Fa-f]{3,8}\s*$' -or $objAttribute.Value -match '^\s*[A-Za-z]+\s*$')) {
+                [void]$listFound.Add(('{0}: <{1}> {2} is the literal color {3}' -f $Source, $objElement.LocalName, $objAttribute.Name, $objAttribute.Value))
+            }
+        }
+        if ($objElement.HasAttribute('Opacity') -and (Test-BlueBrush $objElement.GetAttribute('Background'))) { [void]$listFound.Add(('{0}: <{1}> has a blue Background and an Opacity' -f $Source, $objElement.LocalName)) }
+    }
+    return $listFound.ToArray()
+}
+
+# Returns one text for a script file that does not require Pester 5.1.0 or later in its #Requires statement. The check reads
+# the script requirements of the syntax tree.
+function Get-PesterRequiresViolation {
+    param([string]$Path)
+    $objAst = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$null, [ref]$null)
+    $arrModule = @()
+    if ($objAst.ScriptRequirements) { $arrModule = @($objAst.ScriptRequirements.RequiredModules | Where-Object { $_.Name -eq 'Pester' }) }
+    if ($arrModule.Count -ne 1 -or -not $arrModule[0].Version -or $arrModule[0].Version -ne [version]'5.1.0') { '{0}: no #Requires for Pester ModuleVersion 5.1.0' -f (Split-Path -Leaf $Path) }
 }

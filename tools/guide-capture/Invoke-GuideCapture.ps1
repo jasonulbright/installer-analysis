@@ -75,8 +75,9 @@ $failed = New-Object System.Collections.Generic.List[string]
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ('guide-capture-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory $tmp | Out-Null
 $succeeded = $false
-$session = New-PSSession -ComputerName $Target -Credential $LabCredential
+$session = $null
 try {
+    $session = New-PSSession -ComputerName $Target -Credential $LabCredential
     # The lock: New-Item with -ErrorAction Stop fails with an IOException when the file exists.
     # Wait for the holder. A lock that is older than the stale age belongs to a dead capture and is removed.
     $haveLock = Invoke-Command $session {
@@ -92,11 +93,18 @@ try {
             catch [System.IO.IOException] {
                 $held = Get-Item -LiteralPath $path -ErrorAction SilentlyContinue
                 if ($held -and ((Get-Date) - $held.LastWriteTime).TotalMinutes -gt $staleMinutes) {
-                    # Read the age again right before the delete: the holder may have touched the lock. Retry at once
-                    # only when the lock is gone. Otherwise fall to the deadline check and the sleep, so the loop never spins.
+                    # Read the age again right before the rename: the holder may have touched the lock. Rename the stale
+                    # lock to a name of this capture (only one waiter wins the rename; a lost rename counts as busy), then
+                    # delete the renamed file. A waiter never deletes a fresh lock. Retry at once only when the lock is gone.
+                    # Otherwise fall to the deadline check and the sleep, so the loop never spins.
                     $again = Get-Item -LiteralPath $path -ErrorAction SilentlyContinue
                     if ($again -and ((Get-Date) - $again.LastWriteTime).TotalMinutes -gt $staleMinutes) {
-                        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+                        $stale = "$path.stale.$token"
+                        try {
+                            Move-Item -LiteralPath $path -Destination $stale -ErrorAction Stop
+                            Remove-Item -LiteralPath $stale -Force -ErrorAction SilentlyContinue
+                        }
+                        catch { $null = $_ }
                     }
                     if (-not (Test-Path -LiteralPath $path)) { continue }
                 }
@@ -197,7 +205,7 @@ finally {
     # Each cleanup runs on its own, so that a failed cleanup cannot replace the original error.
     # Stop a capture that still runs (a timeout leaves it running), then remove the task. Stop the task first, then the
     # powershell.exe processes of this folder, then unregister, so that nothing keeps writing into the folder or the lock.
-    try {
+    if ($session) { try {
         Invoke-Command $session {
             param($t, $r)
             Stop-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
@@ -206,14 +214,14 @@ finally {
             Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction SilentlyContinue
         } -ArgumentList $taskName, $root
     } catch { Write-Warning "Cleanup of the scheduled task failed: $($_.Exception.Message)" }
-    try { Invoke-Command $session { param($r) Remove-Item $r -Recurse -Force -ErrorAction SilentlyContinue } -ArgumentList $root } catch { Write-Warning "Cleanup of $root failed: $($_.Exception.Message)" }
+    try { Invoke-Command $session { param($r) Remove-Item $r -Recurse -Force -ErrorAction SilentlyContinue } -ArgumentList $root } catch { Write-Warning "Cleanup of $root failed: $($_.Exception.Message)" } }
     # Remove the lock only when this capture took it.
     try {
-        if ($haveLock) {
-            Invoke-Command $session { param($path, $token) if ((Test-Path -LiteralPath $path) -and ((Get-Content -LiteralPath $path -Raw -ErrorAction SilentlyContinue).Trim() -eq $token)) { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue } } -ArgumentList $lockPath, $lockToken
+        if ($haveLock -and $session) {
+            Invoke-Command $session { param($path, $token) if ((Test-Path -LiteralPath $path) -and (([string](Get-Content -LiteralPath $path -Raw -ErrorAction SilentlyContinue)).Trim() -eq $token)) { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue } } -ArgumentList $lockPath, $lockToken
         }
     } catch { Write-Warning "Removing the capture lock failed: $($_.Exception.Message)" }
-    try { Remove-PSSession $session } catch { Write-Warning "Closing the session failed: $($_.Exception.Message)" }
+    try { if ($session) { Remove-PSSession $session } } catch { Write-Warning "Closing the session failed: $($_.Exception.Message)" }
     if (-not $succeeded) { Write-Warning "The captured files stay in $tmp for inspection." }
     else { try { Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue } catch { Write-Warning "Cleanup of $tmp failed: $($_.Exception.Message)" } }
 }

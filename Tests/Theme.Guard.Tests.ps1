@@ -123,6 +123,19 @@ Describe 'Blue backgrounds have white text (a)' {
         @(Get-AccentButtonWithoutWhite -Text $strOk -Source 'sample').Count | Should -Be 0
     }
 
+    It 'sets no literal color and no Opacity on a blue element outside the styles of <_.Source>' -ForEach $script:arrOwnXamlDocD {
+        @(Get-ElementColorViolation -Text $_.Text -Source $_.Source) | Should -BeNullOrEmpty
+    }
+
+    It 'flags a literal color on an element and an Opacity on a blue element' {
+        $strGrid = '<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">'
+        @(Get-ElementColorViolation -Text ($strGrid + '<TextBlock Foreground="White"/></Grid>') -Source 's').Count | Should -Be 1
+        @(Get-ElementColorViolation -Text ($strGrid + '<Border Background="#0078D4"/></Grid>') -Source 's').Count | Should -Be 1
+        @(Get-ElementColorViolation -Text ($strGrid + '<Border Background="{DynamicResource MahApps.Brushes.Accent}" Opacity="0.85"/></Grid>') -Source 's').Count | Should -Be 1
+        @(Get-ElementColorViolation -Text ($strGrid + '<Border Background="{DynamicResource MahApps.Brushes.ThemeBackground}" Opacity="0.9"><TextBlock Foreground="{DynamicResource MahApps.Brushes.IdealForeground}"/></Border></Grid>') -Source 's').Count | Should -Be 0
+        @(Get-ElementColorViolation -Text ($strGrid + '<Grid.Resources><Style TargetType="TextBlock"><Setter Property="Foreground" Value="White"/></Style></Grid.Resources></Grid>') -Source 's').Count | Should -Be 0
+    }
+
     It 'sets the foreground of every selected-state trigger that sets a Background in <_.Source>' -ForEach $script:arrXamlDocD {
         [xml]$xml = $_.Text
         $arrBad = foreach ($objTrigger in @($xml.SelectNodes("//*[local-name()='Trigger'][@Property='IsSelected' or @Property='IsHighlighted' or @Property='IsMouseOver' or @Property='IsPressed']"))) {
@@ -510,6 +523,20 @@ Describe 'Every button takes the shared themed style (d)' {
         $objCancel.GetAttribute('Style') | Should -Be '{StaticResource DialogButton}'
     }
 
+    It 'flags a dialog button that sets its own size and a dialog button that the script sizes in code' {
+        $strBase = '<Style x:Key="ThemedButtonStyle" TargetType="Button" BasedOn="{StaticResource MahApps.Styles.Button.Square}"/>'
+        $strSecondary = '<Style x:Key="DialogButton" TargetType="Button" BasedOn="{StaticResource ThemedButtonStyle}"><Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Gray10}"/><Setter Property="MinWidth" Value="140"/><Setter Property="Height" Value="32"/></Style>'
+        $strPrimary = '<Style x:Key="DialogAccentButton" TargetType="Button" BasedOn="{StaticResource ThemedButtonStyle}"><Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Highlight}"/><Setter Property="MinWidth" Value="140"/><Setter Property="Height" Value="32"/></Style>'
+        $strOpen = "<Grid $script:strNamespace><Grid.Resources>" + $strBase + '<!-- The one secondary dialog style. -->' + $strSecondary + $strPrimary + '</Grid.Resources>'
+        @(Get-DialogButtonViolation -Text ($strOpen + '<Button Style="{StaticResource DialogButton}"/></Grid>') -Source 's').Count | Should -Be 0
+        foreach ($strAttribute in 'Width="200"', 'MinWidth="90"', 'Height="28"', 'Padding="12,0"') {
+            @(Get-DialogButtonViolation -Text ($strOpen + '<Button Style="{StaticResource DialogButton}" ' + $strAttribute + '/></Grid>') -Source 's').Count | Should -Be 1 -Because $strAttribute
+        }
+        $strTemp = Write-TempScript "function A {`n  `$b = New-Object System.Windows.Controls.Button`n  `$b.SetResourceReference([System.Windows.Controls.Button]::StyleProperty, 'DialogButton')`n  `$b.Padding = [System.Windows.Thickness]::new(12,0,12,0)`n  `$b.MinWidth = 140`n}`n"
+        try { @(Get-CodeButtonViolation -Path $strTemp -AllowedKey @('DialogButton')).Count | Should -Be 2 }
+        finally { Remove-Item -LiteralPath $strTemp -Force -ErrorAction SilentlyContinue }
+    }
+
     It 'flags a second secondary style, a size that differs, a missing comment and a literal color in the dialog styles' {
         $strBase = '<Style x:Key="ThemedButtonStyle" TargetType="Button" BasedOn="{StaticResource MahApps.Styles.Button.Square}"/>'
         $strSecondary = '<Style x:Key="DialogButton" TargetType="Button" BasedOn="{StaticResource ThemedButtonStyle}"><Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Gray10}"/><Setter Property="MinWidth" Value="90"/><Setter Property="Height" Value="32"/></Style>'
@@ -690,10 +717,30 @@ Describe 'No raw exception text in the window (e)' {
     }
 }
 
+Describe 'Every test file requires Pester 5.1.0 (g)' {
+    It 'finds the test files' {
+        @(Get-RepoFile -Filter '*.Tests.ps1').Count | Should -BeGreaterThan 15
+        @(Get-RepoFile -Filter '*.Tests.ps1' | Where-Object { $_.Relative -like 'Module\*' }).Count | Should -BeGreaterThan 0
+    }
+
+    It 'has #Requires for Pester ModuleVersion 5.1.0 in every test file' {
+        $arrBad = foreach ($objItem in @(Get-RepoFile -Filter '*.Tests.ps1')) { Get-PesterRequiresViolation -Path $objItem.File.FullName }
+        @($arrBad) | Should -BeNullOrEmpty
+    }
+
+    It 'flags a test file without the requirement, with an old version or with the module name only' {
+        foreach ($hashCase in @(@{ Text = "Describe 'x' {}"; Count = 1 }, @{ Text = "#Requires -Modules Pester`nDescribe 'x' {}"; Count = 1 }, @{ Text = "#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0.0' }`nDescribe 'x' {}"; Count = 1 }, @{ Text = "#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }`nDescribe 'x' {}"; Count = 0 })) {
+            $strTemp = Write-TempScript $hashCase.Text
+            try { @(Get-PesterRequiresViolation -Path $strTemp).Count | Should -Be $hashCase.Count -Because $hashCase.Text }
+            finally { Remove-Item -LiteralPath $strTemp -Force -ErrorAction SilentlyContinue }
+        }
+    }
+}
+
 Describe 'Path filters of the repository scripts work on the repository root (f)' {
     It 'has no FullName comparison with a path pattern in <_>' -ForEach @(
         'Invoke-Checks.ps1', 'Tests\WindowGuard.Tests.ps1', 'Tests\Theme.Guard.Tests.ps1', 'Tests\ThemeGuardHelpers.ps1', 'Tests\Release.Tests.ps1',
-        'Tests\Documentation.Tests.ps1', 'Tests\TestHelpers.ps1', 'Tests\WindowConfig.ps1', 'tools\guide-capture\Invoke-GuideCapture.ps1'
+        'Tests\Documentation.Tests.ps1', 'Tests\TestHelpers.ps1', 'Tests\WindowConfig.ps1', 'tools\guide-capture\Invoke-GuideCapture.ps1', 'tools\guide-capture\steps-guide.ps1'
     ) {
         $strPath = Join-Path -Path $script:strRepoRoot -ChildPath $_
         Test-Path -LiteralPath $strPath | Should -BeTrue -Because $_

@@ -23,7 +23,7 @@ None.
 | `Logs\InstallerAnalysis-<yyyyMMdd-HHmmss>.log` | The log of one session. | During the session. |
 | `Logs\InstallerAnalysis-startup-<yyyyMMdd-HHmmss>.txt` | The PowerShell transcript of the start. | At the start. |
 | The reports folder (default `Reports`) | CSV and HTML exports. | **Export CSV** or **Export HTML**. |
-| `%LOCALAPPDATA%\InstallerAnalysis\Temp` | The entries that you extract to analyze an inner installer. | **Analyze Selected**, **Extract to temp folder**. The tool tries to remove it when you close the window. Removal is best effort. Delete the folder by hand if files stay. |
+| `%LOCALAPPDATA%\InstallerAnalysis\Temp` | The entries that you extract to analyze an inner installer. | **Analyze Selected**, **Extract to Temp Folder**. The tool tries to remove it when you close the window. Removal is best effort. Delete the folder by hand if files stay. |
 | The folder that you choose | An extraction. | **Extract All** and the other extract actions. |
 
 ## Steps

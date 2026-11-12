@@ -18,8 +18,8 @@ None.
 
 | Key | Option | Default |
 |---|---|---|
-| `SevenZipPath` | **7-Zip executable** | Empty. The tool looks in Program Files. |
-| `ReportsFolder` | **Reports folder** | Empty. The tool uses `Reports` beside the script. |
+| `SevenZipPath` | **7-Zip Executable** | Empty. The tool looks in Program Files. |
+| `ReportsFolder` | **Reports Folder** | Empty. The tool uses `Reports` beside the script. |
 | `LastBrowseDir` | The last folder of the file dialog. | Empty. |
 | `DarkMode` | **Dark Theme** switch | `true`. |
 
