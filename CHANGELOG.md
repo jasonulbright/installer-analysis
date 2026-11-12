@@ -1,5 +1,28 @@
 # Changelog
 
+## [2026.11.12.0023] - 2026-11-12
+
+## 1 theme fix: white text on every blue button in light mode
+
+### Fixed
+
+- Show white text on blue buttons in light mode.
+- Keep text contrast when the pointer is over a button or a button is pressed.
+- Show selected states on the theme highlight.
+- Raise the border contrast of dark-mode buttons to 3:1.
+- Stop showing raw exception text in the window.
+
+### Changed
+
+- Use one shared themed style for every button.
+- Use one gray secondary style for dialogs.
+- Update the shared library to version 2026.11.12.0081.
+- Retake the images of the user guide.
+
+### Added
+
+- Add guard tests for the button styles and the state contrast.
+
 ## [2026.11.07.0022] - 2026-11-07
 
 ## 1 change to the window-test guard
