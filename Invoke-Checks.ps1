@@ -37,8 +37,23 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$root = $PSScriptRoot
+$root = $PSScriptRoot.TrimEnd('\')
 $failed = $false
+# Every path filter works on the path relative to the repository root. The walk never enters .git, .claude (it holds
+# worktrees of this repository, which have their own Tests folder) or the output folders.
+$skipTop = @('.git', '.claude', 'TestOutput', 'Logs', 'Reports')
+function Get-RepoFile {
+    param([string]$Filter)
+    foreach ($top in @(Get-ChildItem -LiteralPath $root -Force)) {
+        if ($skipTop -contains $top.Name) { continue }
+        if ($top.PSIsContainer) { Get-ChildItem -LiteralPath $top.FullName -Filter $Filter -File -Recurse }
+        elseif ($top.Name -like $Filter) { $top }
+    }
+}
+function Get-RelativePath {
+    param([string]$FullName)
+    return $FullName.Substring($root.Length).TrimStart('\')
+}
 
 # Pester 5 only: Pester 6 fails a test file that has an empty -ForEach list.
 Import-Module Pester -MinimumVersion 5.0 -MaximumVersion 5.99.99 -ErrorAction Stop
@@ -56,7 +71,7 @@ if (-not $SkipLint) {
     # Test files pass state to mock bodies through a global variable, and they define fake window controls that the code under test reads by name. Both are intended.
     $testOnlyExclude = 'PSAvoidGlobalVars', 'PSUseDeclaredVarsMoreThanAssignments', 'PSUseShouldProcessForStateChangingFunctions'
     $findings = @(foreach ($t in $targets) {
-        if ($t.FullName -like '*\Tests\*' -or $t.Name -like '*.Tests.ps1') { Invoke-ScriptAnalyzer -Path $t.FullName -Settings $settings -ExcludeRule $testOnlyExclude }
+        if ((Get-RelativePath $t.FullName) -like 'Tests\*' -or $t.Name -like '*.Tests.ps1') { Invoke-ScriptAnalyzer -Path $t.FullName -Settings $settings -ExcludeRule $testOnlyExclude }
         else { Invoke-ScriptAnalyzer -Path $t.FullName -Settings $settings }
     })
     $blocking = @($findings | Where-Object { $_.Severity -in 'Error', 'Warning' })
@@ -67,8 +82,8 @@ if (-not $SkipLint) {
 
 # ---- 2. Tests and coverage -------------------------------------------------
 $cfg = New-PesterConfiguration
-$testFiles = @(Get-ChildItem -LiteralPath $root -Recurse -Filter '*.Tests.ps1' -File |
-        Where-Object { $_.FullName -notlike '*\Tests\Lab\*' -and $_.FullName -notlike '*\.git\*' -and $_.FullName -notlike '*\TestOutput\*' })
+$testFiles = @(Get-RepoFile -Filter '*.Tests.ps1' |
+        Where-Object { (Get-RelativePath $_.FullName) -notlike 'Tests\Lab\*' -and (Get-RelativePath $_.FullName) -notlike 'Lib\*' })
 if ($testFiles.Count -eq 0) { Write-Host 'No test file found.'; exit 1 }
 # Window tests open windows. They run only where the guard allows it (see Tests\WindowHarness.ps1).
 . (Join-Path $root 'Tests\WindowHarness.ps1')

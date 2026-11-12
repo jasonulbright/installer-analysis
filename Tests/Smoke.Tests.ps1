@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 # Smoke test of Installer Analysis. It was a stand-alone script that printed PASS and FAIL
 # lines and set an exit code. It is now a Pester file with the same checks, so that
 # Invoke-Checks.ps1 runs it: the module loads, every exported function exists, every

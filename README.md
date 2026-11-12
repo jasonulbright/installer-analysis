@@ -124,17 +124,17 @@ current file's payload (inner MSIs / MSPs / sub-EXEs / `.nupkg` / Media-
 table CABs). Pick a row and click **Analyze Selected** to drill into it:
 the analyzer extracts the entry to a sandboxed temp folder, re-runs the
 full pipeline on it, and surfaces a breadcrumb bar with `← Back` plus
-clickable ancestor segments. **Open in new window** spawns a sibling
+clickable ancestor segments. **Open in New Window** spawns a sibling
 analyzer process so you can compare the outer and inner side-by-side.
 Drill depth caps at 5. Temp folder is wiped on shell close.
 
 ## Right-click
 
 Every grid row has a context menu. Payload + Inner Installers grids:
-Extract to temp folder, Copy name, Copy full path, Hash (SHA-256).
-Inner Installers also has Analyze Selected and Open in new window. The
+Extract to Temp Folder, Copy Name, Copy Full Path, Hash This Entry (SHA-256).
+Inner Installers also has Analyze Selected and Open in New Window. The
 path TextBox keeps the standard Cut / Copy / Paste / Select All and
-adds Copy path, Open enclosing folder, and Re-analyze.
+adds Copy Path, Open Enclosing Folder, and Re-Analyze.
 
 ## Export
 

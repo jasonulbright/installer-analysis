@@ -4,45 +4,22 @@
 # (remove it here). Run Show-ContrastViolations.ps1 to print the current list.
 #
 # Text must reach 4.5:1 and a control border 3:1, enabled and disabled, in both
-# themes. The causes are shared by every suite tool: the SuiteCommon palette
-# (sidebar button border #555555 on #1E1E1E is 2.06:1), the MahApps disabled
-# style and the light text box border. The fix
+# themes. The cause of the remaining defects is the SuiteCommon light palette. The fix
 # belongs in app-packager-suite, then a sync of the vendored copy, not here.
 
 function Get-KnownContrastDefect {
     param([Parameter(Mandatory)][ValidateSet('dark', 'light')][string]$Theme)
     switch ($Theme) {
-        'dark' {
-            @(
-                'btnAnalyzeSelectedInner:DisabledText', 'btnBrowse:DisabledText', 'btnCopyJson:DisabledText',
-                'btnCopySummary:DisabledText', 'btnExportCsv:DisabledText', 'btnExportHtml:DisabledText',
-                'btnExtractAllInner:DisabledText', 'btnFilesExtractFolder:DisabledText', 'btnFilesExtractSelected:DisabledText',
-                'btnFilesUp:DisabledText', 'btnOpenInNewWindow:DisabledText', 'btnOptions:DisabledBorder',
-                'btnOptions:EnabledBorder', 'btnRegistryCopyAll:DisabledText', 'btnViewEmbedded:DisabledBorder',
-                'btnViewEmbedded:EnabledBorder', 'btnViewFiles:DisabledBorder', 'btnViewFiles:EnabledBorder',
-                'btnViewMsi:DisabledBorder', 'btnViewMsi:EnabledBorder', 'btnViewOverview:DisabledBorder',
-                'btnViewOverview:EnabledBorder', 'btnViewPayload:DisabledBorder', 'btnViewPayload:EnabledBorder',
-                'btnViewRegistry:DisabledBorder', 'btnViewRegistry:EnabledBorder', 'btnViewStrings:DisabledBorder',
-                'btnViewStrings:EnabledBorder', 'titlebar:inactive'
-            )
-        }
+        'dark' { @() }
         'light' {
+            # The sidebar buttons of the light theme come from the SuiteCommon palette (white-on-blue text passes; the
+            # border #006CBE on #0078D4 and the inactive title bar do not). The fix belongs in app-packager-suite.
             @(
-                'btnAnalyzeSelectedInner:DisabledText', 'btnBrowse:DisabledText', 'btnCopyJson:DisabledText',
-                'btnCopySummary:DisabledText', 'btnExportCsv:DisabledText', 'btnExportHtml:DisabledText',
-                'btnExtractAllInner:DisabledText', 'btnFilesExtractFolder:DisabledText', 'btnFilesExtractSelected:DisabledText',
-                'btnFilesUp:DisabledText', 'btnOpenInNewWindow:DisabledText', 'btnOptions:DisabledText',
-                'btnRegistryCopyAll:DisabledText', 'btnViewEmbedded:DisabledBorder', 'btnViewEmbedded:DisabledText',
-                'btnViewEmbedded:EnabledBorder', 'btnViewFiles:DisabledBorder', 'btnViewFiles:DisabledText',
-                'btnViewFiles:EnabledBorder', 'btnViewMsi:DisabledBorder', 'btnViewMsi:DisabledText',
-                'btnViewMsi:EnabledBorder', 'btnViewOverview:DisabledBorder', 'btnViewOverview:DisabledText',
-                'btnViewOverview:EnabledBorder', 'btnViewPayload:DisabledBorder', 'btnViewPayload:DisabledText',
-                'btnViewPayload:EnabledBorder', 'btnViewRegistry:DisabledBorder', 'btnViewRegistry:DisabledText',
-                'btnViewRegistry:EnabledBorder', 'btnViewStrings:DisabledBorder', 'btnViewStrings:DisabledText',
-                'btnViewStrings:EnabledBorder', 'titlebar:inactive', 'txtFilePath:DisabledBorder',
-                'txtFilePath:EnabledBorder', 'txtFilesFilter:DisabledBorder', 'txtFilesFilter:EnabledBorder',
-                'txtRegistryFilter:DisabledBorder', 'txtRegistryFilter:EnabledBorder', 'txtStringsFilter:DisabledBorder',
-                'txtStringsFilter:EnabledBorder'
+                'btnViewEmbedded:DisabledBorder', 'btnViewEmbedded:EnabledBorder', 'btnViewFiles:DisabledBorder',
+                'btnViewFiles:EnabledBorder', 'btnViewMsi:DisabledBorder', 'btnViewMsi:EnabledBorder',
+                'btnViewOverview:DisabledBorder', 'btnViewOverview:EnabledBorder', 'btnViewPayload:DisabledBorder',
+                'btnViewPayload:EnabledBorder', 'btnViewRegistry:DisabledBorder', 'btnViewRegistry:EnabledBorder',
+                'btnViewStrings:DisabledBorder', 'btnViewStrings:EnabledBorder', 'titlebar:inactive'
             )
         }
     }

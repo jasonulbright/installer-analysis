@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 # Package formats that are ZIP files (Chocolatey, NuGet, Intunewin, MSIX, PSADT) and the code that
 # turns an analysis result into text and JSON. The fixtures are small synthetic archives.
 

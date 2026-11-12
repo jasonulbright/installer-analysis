@@ -21,80 +21,107 @@
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Dark.Steel.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Sidebar button template: shade-lift on Pressed instead of the MahApps
-                 Square default (which inverts colors via VSM and renders white text
-                 invisible on the dark-theme sidebar). Foreground stays White;
-                 #3A3A3A reads correctly under either theme during the brief press. -->
-            <ControlTemplate x:Key="SidebarButtonTemplate" TargetType="Button">
-                <Border x:Name="Bd"
+            <!-- Contrast overrides of the MahApps theme brushes. One value passes in both themes:
+                 #7F7F7F is 4.0:1 on white and 3.8:1 on #252525 (control borders need 3:1);
+                 white title text is 7.0:1 on #595959 (the inactive title bar). -->
+            <SolidColorBrush x:Key="MahApps.Brushes.TextBox.Border" Color="#7F7F7F"/>
+            <SolidColorBrush x:Key="MahApps.Brushes.WindowTitle.NonActive" Color="#595959"/>
+
+            <!-- The one button template and the one button style. Every Button of the window takes ThemedButtonStyle
+                 or a style that is based on it. No color literal is allowed here: the colors come from the MahApps
+                 theme resources, so the same markup works in the dark and the light theme. Hover shows the theme foreground as border color.
+                 Pressed swaps the theme foreground and the theme background. A disabled button shows MahApps.Brushes.Gray.MouseOver text (4.5:1 or more in both
+                 themes) and a Gray2 border, because the MahApps disabled state fades the text below 4.5:1. -->
+            <ControlTemplate x:Key="ThemedButtonTemplate" TargetType="Button">
+                <Border Name="Bd"
                         Background="{TemplateBinding Background}"
                         BorderBrush="{TemplateBinding BorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         SnapsToDevicePixels="True">
-                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                    <ContentPresenter Name="Cp"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                       Margin="{TemplateBinding Padding}"
                                       RecognizesAccessKey="True"
                                       SnapsToDevicePixels="True"/>
                 </Border>
                 <ControlTemplate.Triggers>
-                    <Trigger Property="IsPressed" Value="True">
-                        <Setter TargetName="Bd" Property="Background">
-                            <Setter.Value>
-                                <SolidColorBrush Color="#3A3A3A"/>
-                            </Setter.Value>
-                        </Setter>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
                     </Trigger>
-                    <Trigger Property="IsEnabled" Value="False">
-                        <Setter TargetName="Bd" Property="Opacity" Value="0.5"/>
+                    <Trigger Property="IsKeyboardFocused" Value="True">
+                        <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
+                    </Trigger>
+                    <Trigger Property="IsPressed" Value="True">
+                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
+                        <Setter TargetName="Cp" Property="TextElement.Foreground" Value="{DynamicResource MahApps.Brushes.ThemeBackground}"/>
                     </Trigger>
                 </ControlTemplate.Triggers>
             </ControlTemplate>
 
-            <Style x:Key="ViewButtonStyle" TargetType="Button" BasedOn="{StaticResource MahApps.Styles.Button.Square}">
-                <Setter Property="Template" Value="{StaticResource SidebarButtonTemplate}"/>
+            <Style x:Key="ThemedButtonStyle" TargetType="Button" BasedOn="{StaticResource MahApps.Styles.Button.Square}">
+                <Setter Property="Template" Value="{StaticResource ThemedButtonTemplate}"/>
+                <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Controls:ControlsHelper.ContentCharacterCasing" Value="Normal"/>
+                <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.Gray.MouseOver}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.Gray2}"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- Selected and highlighted items: white text (IdealForeground) on the accent blue, in both themes.
+                 Each item sets its own Foreground, so a selected parent does not pass white text to its children. -->
+            <Style x:Key="ThemedTreeViewItemStyle" TargetType="TreeViewItem" BasedOn="{StaticResource MahApps.Styles.TreeViewItem}">
+                <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
+                <Style.Triggers>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Accent}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+            <Style TargetType="TreeViewItem" BasedOn="{StaticResource ThemedTreeViewItemStyle}"/>
+
+            <Style x:Key="ViewButtonStyle" TargetType="Button" BasedOn="{StaticResource ThemedButtonStyle}">
                 <Setter Property="Height" Value="42"/>
                 <Setter Property="Margin" Value="8,3,8,3"/>
                 <Setter Property="Padding" Value="12,0,12,0"/>
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
                 <Setter Property="FontSize" Value="13"/>
                 <Setter Property="FontWeight" Value="Bold"/>
-                <Setter Property="Controls:ControlsHelper.ContentCharacterCasing" Value="Normal"/>
-                <Setter Property="Foreground" Value="White"/>
-                <Setter Property="Background">
-                    <Setter.Value><SolidColorBrush Color="#1E1E1E"/></Setter.Value>
-                </Setter>
-                <Setter Property="BorderBrush">
-                    <Setter.Value><SolidColorBrush Color="#555555"/></Setter.Value>
-                </Setter>
-                <Setter Property="BorderThickness" Value="1"/>
             </Style>
 
-            <Style x:Key="OptionsButtonStyle" TargetType="Button" BasedOn="{StaticResource MahApps.Styles.Button.Square}">
-                <Setter Property="Template" Value="{StaticResource SidebarButtonTemplate}"/>
-                <Setter Property="Height" Value="42"/>
-                <Setter Property="Margin" Value="8,3,8,3"/>
-                <Setter Property="Padding" Value="12,0,12,0"/>
-                <Setter Property="HorizontalContentAlignment" Value="Left"/>
-                <Setter Property="FontSize" Value="13"/>
-                <Setter Property="FontWeight" Value="Bold"/>
-                <Setter Property="Controls:ControlsHelper.ContentCharacterCasing" Value="Normal"/>
-                <Setter Property="Foreground" Value="White"/>
-                <Setter Property="Background">
-                    <Setter.Value><SolidColorBrush Color="#1E1E1E"/></Setter.Value>
-                </Setter>
-                <Setter Property="BorderBrush">
-                    <Setter.Value><SolidColorBrush Color="#555555"/></Setter.Value>
-                </Setter>
-                <Setter Property="BorderThickness" Value="1"/>
-            </Style>
+            <Style x:Key="OptionsButtonStyle" TargetType="Button" BasedOn="{StaticResource ViewButtonStyle}"/>
 
-            <Style x:Key="SquareInlineButtonStyle" TargetType="Button" BasedOn="{StaticResource MahApps.Styles.Button.Square}">
+            <Style x:Key="SquareInlineButtonStyle" TargetType="Button" BasedOn="{StaticResource ThemedButtonStyle}">
                 <Setter Property="Height" Value="28"/>
                 <Setter Property="MinWidth" Value="90"/>
                 <Setter Property="Margin" Value="0,0,8,0"/>
-                <Setter Property="Controls:ControlsHelper.ContentCharacterCasing" Value="Normal"/>
                 <Setter Property="FontSize" Value="12"/>
+            </Style>
+
+            <Style x:Key="BreadcrumbButtonStyle" TargetType="Button" BasedOn="{StaticResource ThemedButtonStyle}">
+                <Setter Property="MinHeight" Value="22"/>
+                <Setter Property="Padding" Value="6,0,6,0"/>
+                <Setter Property="FontSize" Value="11"/>
+            </Style>
+
+            <Style x:Key="ViewDataGridRow" TargetType="DataGridRow" BasedOn="{StaticResource MahApps.Styles.DataGridRow}">
+                <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.ThemeBackground}"/>
+                <Style.Triggers>
+                    <Trigger Property="AlternationIndex" Value="1">
+                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Control.Background}"/>
+                    </Trigger>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Accent}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/>
+                    </Trigger>
+                </Style.Triggers>
             </Style>
 
             <Style x:Key="ViewDataGrid" TargetType="DataGrid">
@@ -112,9 +139,24 @@
                 <Setter Property="FontSize" Value="11"/>
                 <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.ThemeBackground}"/>
                 <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
-                <Setter Property="RowBackground" Value="{DynamicResource MahApps.Brushes.ThemeBackground}"/>
-                <Setter Property="AlternatingRowBackground" Value="{DynamicResource MahApps.Brushes.Control.Background}"/>
                 <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource MahApps.Brushes.Gray8}"/>
+                <Setter Property="AlternationCount" Value="2"/>
+                <Setter Property="RowStyle" Value="{StaticResource ViewDataGridRow}"/>
+            </Style>
+
+            <Style x:Key="GridCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource MahApps.Styles.DataGridCell}">
+                <Setter Property="Padding" Value="6,0,6,0"/>
+                <Style.Triggers>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Accent}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <Style x:Key="GridHeaderStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}">
+                <Setter Property="Padding" Value="6,0,6,0"/>
+                <Setter Property="HorizontalContentAlignment" Value="Left"/>
             </Style>
         </ResourceDictionary>
     </Window.Resources>
@@ -148,34 +190,34 @@
                                                IsOn="True"
                                                OnContent="" OffContent=""
                                                MinWidth="0"
-                                               ToolTip="Toggle dark / light theme"/>
+                                               ToolTip="Switch between the dark theme and the light theme."/>
                     </DockPanel>
                 </StackPanel>
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel>
                         <Button x:Name="btnViewOverview" Content="Overview"       Style="{StaticResource ViewButtonStyle}"
-                                ToolTip="Show the installer's top-level summary"/>
+                                ToolTip="Show the summary of the installer."/>
                         <Button x:Name="btnViewMsi"      Content="MSI Properties" Style="{StaticResource ViewButtonStyle}"
-                                ToolTip="Show MSI tables, properties, and product details"/>
+                                ToolTip="Show the MSI properties and the product details."/>
                         <Button x:Name="btnViewPayload"  Content="Payload"        Style="{StaticResource ViewButtonStyle}"
-                                ToolTip="Show files embedded inside the installer"/>
+                                ToolTip="Show the files that the installer contains."/>
                         <Button x:Name="btnViewFiles"    Content="File Browser"   Style="{StaticResource ViewButtonStyle}"
                                 Visibility="Collapsed"
-                                ToolTip="Browse the listed files as folders and extract selected files or folders with their paths"/>
+                                ToolTip="Show the files as folders and extract the selected items with their paths."/>
                         <Button x:Name="btnViewEmbedded" Content="Inner Installers" Style="{StaticResource ViewButtonStyle}"
                                 Visibility="Collapsed"
-                                ToolTip="Show inner MSIs / CABs / EXEs that can themselves be analyzed"/>
+                                ToolTip="Show the inner MSI, CAB and EXE files that you can analyze."/>
                         <Button x:Name="btnViewRegistry" Content="Registry Settings" Style="{StaticResource ViewButtonStyle}"
                                 Visibility="Collapsed"
-                                ToolTip="Show the registry keys and values the installer writes or removes"/>
+                                ToolTip="Show the registry keys and values that the installer writes or removes."/>
                         <Button x:Name="btnViewStrings"  Content="Strings"        Style="{StaticResource ViewButtonStyle}"
-                                ToolTip="Show strings and resources extracted from the installer"/>
+                                ToolTip="Show the strings and resources that the tool found in the installer."/>
 
                         <Button x:Name="btnOptions" Content="Options"
                                 Style="{StaticResource OptionsButtonStyle}"
                                 Margin="8,24,8,3"
-                                ToolTip="7-Zip path, logging, reports folder, about"/>
+                                ToolTip="Set the 7-Zip path and the reports folder, and show the log folder and the version."/>
                     </StackPanel>
                 </ScrollViewer>
             </DockPanel>
@@ -222,15 +264,13 @@
                                 MinWidth="76" Height="24"
                                 Padding="6,0,6,0"
                                 Margin="0,0,8,0"
-                                Style="{StaticResource MahApps.Styles.Button.Square}"
-                                Controls:ControlsHelper.ContentCharacterCasing="Normal"
-                                FontSize="11"
-                                ToolTip="Return to the previous (outer) installer"/>
+                                Style="{StaticResource BreadcrumbButtonStyle}"
+                                ToolTip="Return to the outer installer."/>
                         <StackPanel x:Name="breadcrumbSegments"
                                     Orientation="Horizontal"
                                     VerticalAlignment="Center"/>
                     </DockPanel>
-                    <TextBlock x:Name="txtModuleTitle" Text="Overview" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="txtModuleTitle" Text="Overview" FontSize="18" FontWeight="Bold"/>
                     <TextBlock x:Name="txtModuleSubtitle"
                                Text="Drag an installer onto the window or browse to one. Supports EXE, MSI, MSIX, .intunewin, .nupkg, PSADT zip, and Squirrel Setup.exe."
                                FontSize="11"
@@ -258,9 +298,9 @@
                             <MenuItem Header="Paste"      Command="ApplicationCommands.Paste"/>
                             <MenuItem Header="Select All" Command="ApplicationCommands.SelectAll"/>
                             <Separator/>
-                            <MenuItem x:Name="ctxPathCopyPath"      Header="Copy path"/>
-                            <MenuItem x:Name="ctxPathOpenFolder"    Header="Open enclosing folder"/>
-                            <MenuItem x:Name="ctxPathReanalyze"     Header="Re-analyze"/>
+                            <MenuItem x:Name="ctxPathCopyPath"      Header="Copy Path"/>
+                            <MenuItem x:Name="ctxPathOpenFolder"    Header="Open Enclosing Folder"/>
+                            <MenuItem x:Name="ctxPathReanalyze"     Header="Re-Analyze"/>
                         </ContextMenu>
                     </TextBox.ContextMenu>
                 </TextBox>
@@ -269,22 +309,21 @@
                         Content="Browse..."
                         Style="{StaticResource SquareInlineButtonStyle}"
                         Margin="8,0,0,0"
-                        MinWidth="90" Height="28"
-                        ToolTip="Pick an installer file from disk to analyze (Ctrl+O)"/>
+                        ToolTip="Select an installer file to analyze (Ctrl+O)."/>
             </Grid>
 
             <Border Grid.Row="2" x:Name="actionBar" Visibility="Collapsed" Padding="16,10,16,10">
                 <StackPanel Orientation="Horizontal">
                     <Button x:Name="btnCopySummary" Content="Copy Summary"     Style="{StaticResource SquareInlineButtonStyle}"
-                            ToolTip="Copy the text summary to the clipboard"/>
+                            ToolTip="Copy the text summary to the clipboard."/>
                     <Button x:Name="btnCopyJson"    Content="Copy JSON"        Style="{StaticResource SquareInlineButtonStyle}"
-                            ToolTip="Copy the full analysis as JSON to the clipboard"/>
+                            ToolTip="Copy the full analysis as JSON to the clipboard."/>
                     <Button x:Name="btnExportCsv"   Content="Export CSV"       Style="{StaticResource SquareInlineButtonStyle}"
-                            ToolTip="Export the current view as CSV"/>
+                            ToolTip="Export the current view as a CSV file."/>
                     <Button x:Name="btnExportHtml"  Content="Export HTML"      Style="{StaticResource SquareInlineButtonStyle}"
-                            ToolTip="Export the full report as HTML"/>
+                            ToolTip="Export the full report as an HTML file."/>
                     <Button x:Name="btnExtractAll"  Content="Extract Payload"  Style="{StaticResource SquareInlineButtonStyle}" Visibility="Collapsed"
-                            ToolTip="Extract every payload file to a folder on disk"/>
+                            ToolTip="Extract every payload file to a folder."/>
                 </StackPanel>
             </Border>
 
@@ -304,18 +343,9 @@
 
                 <DataGrid x:Name="gridMsi"
                           Visibility="Collapsed"
-                          Style="{StaticResource ViewDataGrid}">
-                    <DataGrid.ColumnHeaderStyle>
-                        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}">
-                            <Setter Property="Padding" Value="6,0,6,0"/>
-                            <Setter Property="HorizontalContentAlignment" Value="Left"/>
-                        </Style>
-                    </DataGrid.ColumnHeaderStyle>
-                    <DataGrid.CellStyle>
-                        <Style TargetType="DataGridCell" BasedOn="{StaticResource MahApps.Styles.DataGridCell}">
-                            <Setter Property="Padding" Value="6,0,6,0"/>
-                        </Style>
-                    </DataGrid.CellStyle>
+                          Style="{StaticResource ViewDataGrid}"
+                          ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                          CellStyle="{StaticResource GridCellStyle}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Property" Width="260" Binding="{Binding Property}"/>
                         <DataGridTextColumn Header="Value"    Width="*"   Binding="{Binding Value}"/>
@@ -324,26 +354,17 @@
 
                 <DataGrid x:Name="gridPayload"
                           Visibility="Collapsed"
-                          Style="{StaticResource ViewDataGrid}">
-                    <DataGrid.ColumnHeaderStyle>
-                        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}">
-                            <Setter Property="Padding" Value="6,0,6,0"/>
-                            <Setter Property="HorizontalContentAlignment" Value="Left"/>
-                        </Style>
-                    </DataGrid.ColumnHeaderStyle>
-                    <DataGrid.CellStyle>
-                        <Style TargetType="DataGridCell" BasedOn="{StaticResource MahApps.Styles.DataGridCell}">
-                            <Setter Property="Padding" Value="6,0,6,0"/>
-                        </Style>
-                    </DataGrid.CellStyle>
+                          Style="{StaticResource ViewDataGrid}"
+                          ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                          CellStyle="{StaticResource GridCellStyle}">
                     <DataGrid.ContextMenu>
                         <ContextMenu x:Name="ctxPayload">
-                            <MenuItem x:Name="ctxPayloadExtractTemp" Header="Extract to temp folder"/>
+                            <MenuItem x:Name="ctxPayloadExtractTemp" Header="Extract to Temp Folder"/>
                             <Separator/>
-                            <MenuItem x:Name="ctxPayloadCopyName"    Header="Copy name"/>
-                            <MenuItem x:Name="ctxPayloadCopyPath"    Header="Copy full path"/>
+                            <MenuItem x:Name="ctxPayloadCopyName"    Header="Copy Name"/>
+                            <MenuItem x:Name="ctxPayloadCopyPath"    Header="Copy Full Path"/>
                             <Separator/>
-                            <MenuItem x:Name="ctxPayloadHash"        Header="Hash this entry (SHA-256)"/>
+                            <MenuItem x:Name="ctxPayloadHash"        Header="Hash This Entry (SHA-256)"/>
                         </ContextMenu>
                     </DataGrid.ContextMenu>
                     <DataGrid.Columns>
@@ -368,42 +389,33 @@
                         <Button x:Name="btnExtractAllInner"
                                 Content="Extract All Inner"
                                 Style="{StaticResource SquareInlineButtonStyle}"
-                                ToolTip="Extract every classified inner installer entry to a folder of your choice"/>
+                                ToolTip="Extract every inner installer to a folder."/>
                         <Button x:Name="btnAnalyzeSelectedInner"
                                 Content="Analyze Selected"
                                 Style="{StaticResource SquareInlineButtonStyle}"
-                                ToolTip="Drill into the selected inner installer (extracts to temp and re-runs the analyzer)"/>
+                                ToolTip="Extract the selected inner installer to a temp folder and analyze it."/>
                         <Button x:Name="btnOpenInNewWindow"
-                                Content="Open In New Window"
+                                Content="Open in New Window"
                                 Style="{StaticResource SquareInlineButtonStyle}"
-                                ToolTip="Launch a fresh analyzer process against the selected inner installer"/>
+                                ToolTip="Analyze the selected inner installer in a second window."/>
                     </StackPanel>
 
                     <DataGrid x:Name="gridEmbedded"
                               Grid.Row="1"
-                              Style="{StaticResource ViewDataGrid}">
-                        <DataGrid.ColumnHeaderStyle>
-                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}">
-                                <Setter Property="Padding" Value="6,0,6,0"/>
-                                <Setter Property="HorizontalContentAlignment" Value="Left"/>
-                            </Style>
-                        </DataGrid.ColumnHeaderStyle>
-                        <DataGrid.CellStyle>
-                            <Style TargetType="DataGridCell" BasedOn="{StaticResource MahApps.Styles.DataGridCell}">
-                                <Setter Property="Padding" Value="6,0,6,0"/>
-                            </Style>
-                        </DataGrid.CellStyle>
+                              Style="{StaticResource ViewDataGrid}"
+                              ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                              CellStyle="{StaticResource GridCellStyle}">
                         <DataGrid.ContextMenu>
                             <ContextMenu x:Name="ctxEmbedded">
                                 <MenuItem x:Name="ctxEmbAnalyze"      Header="Analyze Selected"/>
-                                <MenuItem x:Name="ctxEmbOpenNew"      Header="Open in new window"/>
+                                <MenuItem x:Name="ctxEmbOpenNew"      Header="Open in New Window"/>
                                 <Separator/>
-                                <MenuItem x:Name="ctxEmbExtractTemp"  Header="Extract to temp folder"/>
+                                <MenuItem x:Name="ctxEmbExtractTemp"  Header="Extract to Temp Folder"/>
                                 <Separator/>
-                                <MenuItem x:Name="ctxEmbCopyName"     Header="Copy name"/>
-                                <MenuItem x:Name="ctxEmbCopyPath"     Header="Copy full path"/>
+                                <MenuItem x:Name="ctxEmbCopyName"     Header="Copy Name"/>
+                                <MenuItem x:Name="ctxEmbCopyPath"     Header="Copy Full Path"/>
                                 <Separator/>
-                                <MenuItem x:Name="ctxEmbHash"         Header="Hash this entry (SHA-256)"/>
+                                <MenuItem x:Name="ctxEmbHash"         Header="Hash This Entry (SHA-256)"/>
                             </ContextMenu>
                         </DataGrid.ContextMenu>
                         <DataGrid.Columns>
@@ -428,15 +440,15 @@
                                     Content="Up"
                                     Style="{StaticResource SquareInlineButtonStyle}"
                                     MinWidth="56"
-                                    ToolTip="Go to the parent folder"/>
+                                    ToolTip="Go to the parent folder."/>
                             <Button x:Name="btnFilesExtractSelected"
                                     Content="Extract Selected..."
                                     Style="{StaticResource SquareInlineButtonStyle}"
-                                    ToolTip="Extract the selected files and folders, with their paths, to a folder of your choice"/>
+                                    ToolTip="Extract the selected files and folders, with their paths, to a folder."/>
                             <Button x:Name="btnFilesExtractFolder"
                                     Content="Extract This Folder..."
                                     Style="{StaticResource SquareInlineButtonStyle}"
-                                    ToolTip="Extract everything under the current folder, with paths, to a folder of your choice"/>
+                                    ToolTip="Extract everything in the current folder, with paths, to a folder."/>
                         </StackPanel>
                         <TextBox x:Name="txtFilesFilter"
                                  FontSize="12"
@@ -466,6 +478,7 @@
                                   BorderThickness="0"
                                   Background="{DynamicResource MahApps.Brushes.ThemeBackground}"
                                   Foreground="{DynamicResource MahApps.Brushes.ThemeForeground}"
+                                  ItemContainerStyle="{StaticResource ThemedTreeViewItemStyle}"
                                   VirtualizingStackPanel.IsVirtualizing="True"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
                         <GridSplitter Grid.Column="1"
@@ -475,29 +488,20 @@
                                       Background="{DynamicResource MahApps.Brushes.Gray8}"/>
                         <DataGrid x:Name="gridFiles"
                                   Grid.Column="2"
-                                  Style="{StaticResource ViewDataGrid}">
-                            <DataGrid.ColumnHeaderStyle>
-                                <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}">
-                                    <Setter Property="Padding" Value="6,0,6,0"/>
-                                    <Setter Property="HorizontalContentAlignment" Value="Left"/>
-                                </Style>
-                            </DataGrid.ColumnHeaderStyle>
-                            <DataGrid.CellStyle>
-                                <Style TargetType="DataGridCell" BasedOn="{StaticResource MahApps.Styles.DataGridCell}">
-                                    <Setter Property="Padding" Value="6,0,6,0"/>
-                                </Style>
-                            </DataGrid.CellStyle>
+                                  Style="{StaticResource ViewDataGrid}"
+                                  ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                                  CellStyle="{StaticResource GridCellStyle}">
                             <DataGrid.ContextMenu>
                                 <ContextMenu x:Name="ctxFiles">
-                                    <MenuItem x:Name="ctxFilesOpen"        Header="Open folder"/>
+                                    <MenuItem x:Name="ctxFilesOpen"        Header="Open Folder"/>
                                     <Separator/>
-                                    <MenuItem x:Name="ctxFilesExtractTo"   Header="Extract to folder..."/>
-                                    <MenuItem x:Name="ctxFilesExtractTemp" Header="Extract to temp folder"/>
+                                    <MenuItem x:Name="ctxFilesExtractTo"   Header="Extract to Folder..."/>
+                                    <MenuItem x:Name="ctxFilesExtractTemp" Header="Extract to Temp Folder"/>
                                     <Separator/>
-                                    <MenuItem x:Name="ctxFilesCopyName"    Header="Copy name"/>
-                                    <MenuItem x:Name="ctxFilesCopyPath"    Header="Copy full path"/>
+                                    <MenuItem x:Name="ctxFilesCopyName"    Header="Copy Name"/>
+                                    <MenuItem x:Name="ctxFilesCopyPath"    Header="Copy Full Path"/>
                                     <Separator/>
-                                    <MenuItem x:Name="ctxFilesHash"        Header="Hash this entry (SHA-256)"/>
+                                    <MenuItem x:Name="ctxFilesHash"        Header="Hash This Entry (SHA-256)"/>
                                 </ContextMenu>
                             </DataGrid.ContextMenu>
                             <DataGrid.Columns>
@@ -522,7 +526,7 @@
                                 Content="Copy All"
                                 Style="{StaticResource SquareInlineButtonStyle}"
                                 Margin="8,0,0,0"
-                                ToolTip="Copy every listed setting as tab-separated text"/>
+                                ToolTip="Copy every listed setting as tab-separated text."/>
                         <TextBox x:Name="txtRegistryFilter"
                                  FontSize="12"
                                  Padding="6,4,6,4"
@@ -537,23 +541,14 @@
                                Foreground="{DynamicResource MahApps.Brushes.Gray1}"/>
                     <DataGrid x:Name="gridRegistry"
                               Grid.Row="2"
-                              Style="{StaticResource ViewDataGrid}">
-                        <DataGrid.ColumnHeaderStyle>
-                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}">
-                                <Setter Property="Padding" Value="6,0,6,0"/>
-                                <Setter Property="HorizontalContentAlignment" Value="Left"/>
-                            </Style>
-                        </DataGrid.ColumnHeaderStyle>
-                        <DataGrid.CellStyle>
-                            <Style TargetType="DataGridCell" BasedOn="{StaticResource MahApps.Styles.DataGridCell}">
-                                <Setter Property="Padding" Value="6,0,6,0"/>
-                            </Style>
-                        </DataGrid.CellStyle>
+                              Style="{StaticResource ViewDataGrid}"
+                              ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                              CellStyle="{StaticResource GridCellStyle}">
                         <DataGrid.ContextMenu>
                             <ContextMenu x:Name="ctxRegistry">
-                                <MenuItem x:Name="ctxRegistryCopyKey"   Header="Copy key path"/>
-                                <MenuItem x:Name="ctxRegistryCopyValue" Header="Copy value"/>
-                                <MenuItem x:Name="ctxRegistryCopyRows"  Header="Copy selected rows"/>
+                                <MenuItem x:Name="ctxRegistryCopyKey"   Header="Copy Key Path"/>
+                                <MenuItem x:Name="ctxRegistryCopyValue" Header="Copy Value"/>
+                                <MenuItem x:Name="ctxRegistryCopyRows"  Header="Copy Selected Rows"/>
                             </ContextMenu>
                         </DataGrid.ContextMenu>
                         <DataGrid.Columns>
@@ -584,18 +579,9 @@
                              Controls:TextBoxHelper.Watermark="Filter strings (case-insensitive)..."/>
                     <DataGrid x:Name="gridStrings"
                               Grid.Row="1"
-                              Style="{StaticResource ViewDataGrid}">
-                        <DataGrid.ColumnHeaderStyle>
-                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource MahApps.Styles.DataGridColumnHeader}">
-                                <Setter Property="Padding" Value="6,0,6,0"/>
-                                <Setter Property="HorizontalContentAlignment" Value="Left"/>
-                            </Style>
-                        </DataGrid.ColumnHeaderStyle>
-                        <DataGrid.CellStyle>
-                            <Style TargetType="DataGridCell" BasedOn="{StaticResource MahApps.Styles.DataGridCell}">
-                                <Setter Property="Padding" Value="6,0,6,0"/>
-                            </Style>
-                        </DataGrid.CellStyle>
+                              Style="{StaticResource ViewDataGrid}"
+                              ColumnHeaderStyle="{StaticResource GridHeaderStyle}"
+                              CellStyle="{StaticResource GridCellStyle}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Category" Width="160" Binding="{Binding Category}"/>
                             <DataGridTextColumn Header="Value"    Width="*"   Binding="{Binding Value}"/>
@@ -614,7 +600,7 @@
                         BorderThickness="2"
                         Margin="8,8,8,0">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <TextBlock Text="Drop installer to analyze"
+                        <TextBlock Text="Drop Installer to Analyze"
                                    FontSize="20" FontWeight="Bold"
                                    HorizontalAlignment="Center"
                                    Foreground="White"/>
@@ -641,7 +627,7 @@
                                                Foreground="{DynamicResource MahApps.Brushes.Accent}"/>
                         <TextBlock x:Name="txtProgressTitle"
                                    Text="Analyzing..."
-                                   FontSize="18" FontWeight="SemiBold"
+                                   FontSize="18" FontWeight="Bold"
                                    HorizontalAlignment="Center"
                                    Margin="0,14,0,0"/>
                         <TextBlock x:Name="txtProgressStep"
@@ -660,8 +646,8 @@
 
             <Border Grid.Row="5">
                 <DockPanel>
-                    <TextBlock x:Name="lblLogOutput" DockPanel.Dock="Top" Text="LOG OUTPUT"
-                               FontSize="10" FontWeight="SemiBold"
+                    <TextBlock x:Name="lblLogOutput" DockPanel.Dock="Top" Text="Log Output"
+                               FontSize="11" FontWeight="Bold"
                                Margin="8,6,0,4"/>
                     <TextBox x:Name="txtLog"
                              IsReadOnly="True"

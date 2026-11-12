@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 # Reading of Windows Installer databases. The MSI files are built with the Windows Installer
 # COM API (New-TestMsi in TestHelpers.ps1), so the code reads files that Windows accepts.
 

@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 # Logic of start-installeranalysis.ps1. The script cannot be dot-sourced (it opens the
 # window), so each function is cut out of its syntax tree and defined here, with plain
 # objects in place of the window controls.
@@ -406,10 +406,13 @@ Describe 'Invoke-FileBrowserExtract' {
         Get-Log | Should -Not -BeLike '*entries -> D:\Out'
     }
 
-    It 'logs the error and hides the progress overlay when the extraction throws' {
+    It 'shows a fixed message, keeps the exception text in the log file and hides the progress overlay when the extraction throws' {
         Mock Expand-InstallerEntries { throw 'disk full' }
+        Mock Write-Log { }
         Invoke-FileBrowserExtract -Names @('a.txt') -Target 'D:\Out' -What 'Selected'
-        Get-Log | Should -BeLike '*Extract Selected failed: disk full*'
+        Get-Log | Should -BeLike '*Extract Selected failed. The log file has the details.*'
+        Get-Log | Should -Not -BeLike '*disk full*'
+        Should -Invoke Write-Log -Times 1 -Exactly -ParameterFilter { $Quiet -and $Message -like '*disk full*' }
         [string]$script:progressOverlay.Visibility | Should -Be 'Collapsed'
     }
 }
@@ -438,10 +441,13 @@ Describe 'Invoke-PayloadExtractAll' {
         [string]$script:progressOverlay.Visibility | Should -Be 'Collapsed'
     }
 
-    It 'reports an exception and hides the overlay' {
+    It 'reports an exception with a fixed message and hides the overlay' {
         Mock Expand-InstallerPayload { throw 'access denied' }
+        Mock Write-Log { }
         Invoke-PayloadExtractAll -Target 'D:\Out'
-        Get-Log | Should -BeLike '*Extract Payload failed: access denied*'
+        Get-Log | Should -BeLike '*Extract Payload failed. The log file has the details.*'
+        Get-Log | Should -Not -BeLike '*access denied*'
+        Should -Invoke Write-Log -Times 1 -Exactly -ParameterFilter { $Quiet -and $Message -like '*access denied*' }
         $script:txtStatus.Text | Should -BeLike 'Extract failed*' -Because 'the status bar must not keep showing Extracting to ...'
         [string]$script:progressOverlay.Visibility | Should -Be 'Collapsed'
     }
@@ -763,11 +769,14 @@ Describe 'Open-EmbeddedInNewWindow' {
         Should -Invoke Start-Process -Times 0 -Exactly
     }
 
-    It 'logs the error when the new process cannot start' {
+    It 'logs a fixed message when the new process cannot start and keeps the exception text in the log file' {
         Mock Invoke-7zExtractSingle { 'D:\x\inner.msi' }
         Mock Start-Process { throw 'cannot start' }
+        Mock Write-Log { }
         Open-EmbeddedInNewWindow -Entry ([pscustomobject]@{ Name = 'inner.msi' })
-        Get-Log | Should -BeLike '*Open in new window failed: cannot start*'
+        Get-Log | Should -BeLike '*Open in new window failed. The log file has the details.*'
+        Get-Log | Should -Not -BeLike '*cannot start*'
+        Should -Invoke Write-Log -Times 1 -Exactly -ParameterFilter { $Quiet -and $Message -like '*cannot start*' }
     }
 }
 

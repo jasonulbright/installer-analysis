@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 # Tests of the window-test guard (Test-WindowTestsAllowed in WindowHarness.ps1).
 # The guard runs window tests only when SUITE_ALLOW_WINDOW_TESTS is 1. Most tests
 # inject the opt-in value. This file opens no window.
@@ -8,8 +8,16 @@ BeforeDiscovery {
     # The scan covers the whole repository, nested folders and lab folders included.
     $script:RepoRoot = Split-Path -Parent $PSScriptRoot
     $script:GuardFile = Join-Path $PSScriptRoot 'WindowGuard.Tests.ps1'
-    $script:WindowTestFiles = @(Get-ChildItem -LiteralPath $script:RepoRoot -Filter '*.Tests.ps1' -File -Recurse |
-            Where-Object { $_.FullName -ne $script:GuardFile -and $_.FullName -notlike '*\.git\*' -and $_.FullName -notlike '*\TestOutput\*' -and (Get-Content -LiteralPath $_.FullName -Raw) -match 'Invoke-WpfSta|New-WpfWindow|ShowDialog|\.Show\(\)|WindowHarness' } |
+    # The path filters work on the path relative to the repository root. .git and .claude (it holds worktrees of
+    # this repository) are never walked.
+    $script:RepoRoot = $script:RepoRoot.TrimEnd('\')
+    $arrTestFile = foreach ($objTop in @(Get-ChildItem -LiteralPath $script:RepoRoot -Force)) {
+        if ($objTop.Name -in '.git', '.claude', 'TestOutput') { continue }
+        if ($objTop.PSIsContainer) { Get-ChildItem -LiteralPath $objTop.FullName -Filter '*.Tests.ps1' -File -Recurse }
+        elseif ($objTop.Name -like '*.Tests.ps1') { $objTop }
+    }
+    $script:WindowTestFiles = @($arrTestFile |
+            Where-Object { $_.FullName -ne $script:GuardFile -and (Get-Content -LiteralPath $_.FullName -Raw) -match 'Invoke-WpfSta|New-WpfWindow|ShowDialog|\.Show\(\)|WindowHarness' } |
             ForEach-Object { @{ Name = $_.FullName.Substring($script:RepoRoot.Length + 1); Path = $_.FullName } })
 }
 

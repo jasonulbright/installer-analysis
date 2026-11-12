@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 # Readers of binary headers and of MSIX manifests, with well-formed, truncated and hostile input.
 
 BeforeDiscovery {

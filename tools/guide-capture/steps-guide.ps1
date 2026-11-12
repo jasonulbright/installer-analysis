@@ -1,5 +1,5 @@
 # Sample installers: copies of files that every lab computer has. The capture only reads them.
-$samples = 'C:\guide\samples'
+$samples = Join-Path $appDir 'ui\samples'
 New-Item -ItemType Directory $samples -Force | Out-Null
 $msi = Get-ChildItem C:\Windows\Installer -Filter *.msi -ErrorAction SilentlyContinue | Where-Object { $_.Length -gt 200KB -and $_.Length -lt 3MB } | Select-Object -First 1
 if ($msi) { Copy-Item $msi.FullName (Join-Path $samples 'sample-package.msi') }

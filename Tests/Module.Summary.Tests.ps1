@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 # The text summary (Copy Summary, Overview tab), the JSON digest (Copy JSON), the classification
 # of inner installers, and the choice of the registry settings reader. These functions build
 # strings from the analysis result, so the tests feed result objects of each shape and check

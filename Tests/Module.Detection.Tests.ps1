@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 # Prediction of the Add/Remove Programs key and the detection hint of the JSON digest, for each
 # installer type, with the inputs that decide the result and with inputs that are missing.
 

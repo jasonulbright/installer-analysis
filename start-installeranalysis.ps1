@@ -700,7 +700,7 @@ function Confirm-ExtractTargetFolder {
     try { $existingCount = @(Get-ChildItem -LiteralPath $target -Force -ErrorAction Stop).Count } catch { $null = $_ }
     if ($existingCount -gt 0) {
         $ans = Show-ThemedMessage -Owner $window `
-            -Title   'Target folder is not empty' `
+            -Title   'Target Folder Is Not Empty' `
             -Message ('"{0}" already contains {1} item(s). Extracting may overwrite files with the same names. Continue?' -f $target, $existingCount) `
             -Buttons 'YesNo' -Icon 'Warn'
         if ($ans -ne 'Yes') { return $null }
@@ -718,7 +718,7 @@ function Invoke-FileBrowserExtract {
     if (-not $sevenZip -or -not (Test-Path -LiteralPath $sevenZip)) { $sevenZip = Find-7ZipPath }
     if (-not $sevenZip) { Add-LogLine ('Extract {0}: 7z.exe not found.' -f $What); return }
 
-    $txtProgressTitle.Text = 'Extracting files...'
+    $txtProgressTitle.Text = 'Extracting Files...'
     $txtProgressStep.Text  = ('{0} entr{1} -> {2}' -f $Names.Count, $(if ($Names.Count -eq 1) { 'y' } else { 'ies' }), $Target)
     $progressOverlay.Visibility = [System.Windows.Visibility]::Visible
     $window.Dispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Render)
@@ -732,7 +732,8 @@ function Invoke-FileBrowserExtract {
             Set-StatusText ('Extraction finished with 7z exit code {0}.' -f $code)
         }
     } catch {
-        Add-LogLine ('Extract {0} failed: {1}' -f $What, $_.Exception.Message)
+        Write-Log ('Extract {0} failed: {1}' -f $What, $_.Exception.Message) -Level ERROR -Quiet
+        Add-LogLine ('Extract {0} failed. The log file has the details.' -f $What)
     } finally {
         $progressOverlay.Visibility = [System.Windows.Visibility]::Collapsed
     }
@@ -910,14 +911,10 @@ function Update-BreadcrumbBar {
 
         $btn = New-Object System.Windows.Controls.Button
         $btn.Content = $seg.Label
-        $btn.MinHeight = 22
-        $btn.Padding = [System.Windows.Thickness]::new(6,0,6,0)
-        $btn.FontSize = 11
-        [MahApps.Metro.Controls.ControlsHelper]::SetContentCharacterCasing($btn, [System.Windows.Controls.CharacterCasing]::Normal)
-        $btn.SetResourceReference([System.Windows.Controls.Button]::StyleProperty, 'MahApps.Styles.Button.Square')
+        $btn.SetResourceReference([System.Windows.Controls.Button]::StyleProperty, 'BreadcrumbButtonStyle')
         if ($seg.IsCurrent) {
             $btn.IsEnabled = $false
-            $btn.FontWeight = [System.Windows.FontWeights]::SemiBold
+            $btn.FontWeight = [System.Windows.FontWeights]::Bold
         } else {
             $localTarget = [int]$seg.FrameIndex
             $btn.Add_Click({
@@ -1109,6 +1106,7 @@ function Invoke-AnalysisPipeline {
         Done     = $false
         Result   = $null
         ErrorMsg = $null
+        DetailMsg = $null
     })
 
     $btnBrowse.IsEnabled = $false
@@ -1239,7 +1237,8 @@ function Invoke-AnalysisPipeline {
                 $regTemp = Join-Path $env:LOCALAPPDATA ('InstallerAnalysis\Temp\reg\' + ([string]$fi.SHA256).Substring(0, [Math]::Min(16, ([string]$fi.SHA256).Length)))
                 $registry = Get-InstallerRegistrySettings -Path $Path -InstallerType $type -PackageMetadata $pkg -Payload $payload -SevenZipPath $SevenZipPath -TempDir $regTemp
             } catch {
-                $registry = [PSCustomObject]@{ Format = $type; Entries = @(); Note = 'Registry settings could not be read: ' + $_.Exception.Message }
+                $State.DetailMsg = $_.Exception.Message
+                $registry = [PSCustomObject]@{ Format = $type; Entries = @(); Note = 'Registry settings could not be read. The log file has the details.' }
             }
 
             $State.Step = 'Scanning interesting strings (URLs, GUIDs, registry paths)...'
@@ -1288,6 +1287,9 @@ function Invoke-AnalysisPipeline {
             $script:BgPowerShell   = $null
             $script:BgInvokeHandle = $null
 
+            if ($script:AnalysisState.DetailMsg) {
+                Write-Log ('Registry settings could not be read: {0}' -f $script:AnalysisState.DetailMsg) -Level WARN -Quiet
+            }
             if ($script:AnalysisState.ErrorMsg) {
                 $script:LastFileInfo           = $null
                 $script:LastInstallerType      = $null
@@ -1301,7 +1303,7 @@ function Invoke-AnalysisPipeline {
                 $script:LastInnerMsiData       = $null
                 $script:LastInterestingStrings = $null
                 $script:LastRegistry           = $null
-                $txtOverview.Text = 'Analyze failed. Check the log drawer below for details.'
+                $txtOverview.Text = 'The analysis failed. The log file has the details.'
                 $gridMsi.ItemsSource      = @()
                 $gridPayload.ItemsSource  = @()
                 $gridEmbedded.ItemsSource = @()
@@ -1314,7 +1316,8 @@ function Invoke-AnalysisPipeline {
                 $btnViewEmbedded.Visibility = [System.Windows.Visibility]::Collapsed
                 Set-ActionBarVisible -Analyzed:$false -HasPayload:$false
                 Set-StatusText 'Analyze failed.'
-                Add-LogLine    ('Analyze failed: {0}' -f $script:AnalysisState.ErrorMsg)
+                Write-Log ('Analyze failed: {0}' -f $script:AnalysisState.ErrorMsg) -Level ERROR -Quiet
+                Add-LogLine    'Analyze failed. The log file has the details.'
             } else {
                 $r = $script:AnalysisState.Result
                 $script:LastFileInfo           = $r.FileInfo
@@ -1382,7 +1385,7 @@ function New-OptionsSection {
     $h = New-Object System.Windows.Controls.TextBlock
     $h.Text = $Heading
     $h.FontSize = 18
-    $h.FontWeight = [System.Windows.FontWeights]::SemiBold
+    $h.FontWeight = [System.Windows.FontWeights]::Bold
     $h.Margin = [System.Windows.Thickness]::new(0,0,0,6)
     [void]$sp.Children.Add($h)
 
@@ -1435,11 +1438,8 @@ function New-PathPickerPanel {
 
     $btn = New-Object System.Windows.Controls.Button
     $btn.Content = 'Browse...'
-    $btn.MinWidth = 90
-    $btn.Height = 28
     $btn.Margin = [System.Windows.Thickness]::new(8,0,0,0)
-    $btn.SetResourceReference([System.Windows.Controls.Button]::StyleProperty, 'MahApps.Styles.Button.Square')
-    [MahApps.Metro.Controls.ControlsHelper]::SetContentCharacterCasing($btn, [System.Windows.Controls.CharacterCasing]::Normal)
+    $btn.SetResourceReference([System.Windows.Controls.Button]::StyleProperty, 'DialogButton')
     [System.Windows.Controls.Grid]::SetColumn($btn, 1)
     [void]$grid.Children.Add($btn)
 
@@ -1494,10 +1494,8 @@ function New-LoggingPanel {
 
     $btn = New-Object System.Windows.Controls.Button
     $btn.Content = 'Open Logs Folder'
-    $btn.MinWidth = 140
-    $btn.Height = 28
-    $btn.SetResourceReference([System.Windows.Controls.Button]::StyleProperty, 'MahApps.Styles.Button.Square')
-    [MahApps.Metro.Controls.ControlsHelper]::SetContentCharacterCasing($btn, [System.Windows.Controls.CharacterCasing]::Normal)
+    $btn.Padding = [System.Windows.Thickness]::new(12,0,12,0)
+    $btn.SetResourceReference([System.Windows.Controls.Button]::StyleProperty, 'DialogButton')
     # Factory-returned handler needs GetNewClosure to see the captured
     # $localLogDir path when the click fires.
     $localLogDir = $__txDir
@@ -1545,7 +1543,7 @@ function New-AboutPanel {
         $k = New-Object System.Windows.Controls.TextBlock
         $k.Text = [string]$rows[$i].K
         $k.FontSize = 12
-        $k.FontWeight = [System.Windows.FontWeights]::SemiBold
+        $k.FontWeight = [System.Windows.FontWeights]::Bold
         $k.Margin = [System.Windows.Thickness]::new(0,0,16,6)
         $k.VerticalAlignment = [System.Windows.VerticalAlignment]::Top
         [System.Windows.Controls.Grid]::SetRow($k, $i)
@@ -1598,6 +1596,92 @@ function Show-InstallerAnalysisOptions {
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Fonts.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Dark.Steel.xaml" />
             </ResourceDictionary.MergedDictionaries>
+            <!-- Contrast overrides, the same as in MainWindow.xaml. -->
+            <SolidColorBrush x:Key="MahApps.Brushes.TextBox.Border" Color="#7F7F7F"/>
+            <SolidColorBrush x:Key="MahApps.Brushes.WindowTitle.NonActive" Color="#595959"/>
+            <!-- The one button template and the one button style, the same as in MainWindow.xaml. No color literal:
+                 the colors come from the MahApps theme resources. -->
+            <ControlTemplate x:Key="ThemedButtonTemplate" TargetType="Button">
+                <Border Name="Bd"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        SnapsToDevicePixels="True">
+                    <ContentPresenter Name="Cp"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Margin="{TemplateBinding Padding}"
+                                      RecognizesAccessKey="True"
+                                      SnapsToDevicePixels="True"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
+                    </Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True">
+                        <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
+                    </Trigger>
+                    <Trigger Property="IsPressed" Value="True">
+                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
+                        <Setter TargetName="Cp" Property="TextElement.Foreground" Value="{DynamicResource MahApps.Brushes.ThemeBackground}"/>
+                    </Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate>
+            <Style x:Key="ThemedButtonStyle" TargetType="Button" BasedOn="{StaticResource MahApps.Styles.Button.Square}">
+                <Setter Property="Template" Value="{StaticResource ThemedButtonTemplate}"/>
+                <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Controls:ControlsHelper.ContentCharacterCasing" Value="Normal"/>
+                <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.Gray.MouseOver}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.Gray2}"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+            <!-- The one secondary dialog style: a gray fill, the theme text color and a visible border. Cancel, Browse and
+                 Open Logs Folder use it, at one size. The primary dialog style is DialogAccentButton. No other dialog
+                 button style sets a Background. -->
+            <Style x:Key="DialogButton" TargetType="Button" BasedOn="{StaticResource ThemedButtonStyle}">
+                <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Gray10}"/>
+                <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
+                <Setter Property="MinWidth" Value="90"/>
+                <Setter Property="Height" Value="32"/>
+                <Setter Property="Margin" Value="0,0,8,0"/>
+            </Style>
+            <!-- The accent fill is the theme highlight (#4A5763 dark, #00589F light): white text is 7:1 on both.
+                 The border is the theme foreground: the highlight alone is 2.1:1 on the dark dialog.
+                 The plain accent fill of the light theme is 4.49:1. -->
+            <Style x:Key="DialogAccentButton" TargetType="Button" BasedOn="{StaticResource ThemedButtonStyle}">
+                <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Highlight}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
+                <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/>
+                <Setter Property="MinWidth" Value="90"/>
+                <Setter Property="Height" Value="32"/>
+                <Setter Property="Margin" Value="0,0,8,0"/>
+                <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.ThemeBackground}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.Gray.MouseOver}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.Gray2}"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+            <!-- Selected and highlighted items: white text (IdealForeground) on the accent blue, in both themes. -->
+            <Style x:Key="ThemedListBoxItemStyle" TargetType="ListBoxItem" BasedOn="{StaticResource MahApps.Styles.ListBoxItem}">
+                <Setter Property="Padding" Value="16,10,16,10"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="Controls:ItemHelper.DisabledForegroundBrush" Value="{DynamicResource MahApps.Brushes.Gray.MouseOver}"/>
+                <Style.Triggers>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Accent}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
     <Grid>
@@ -1610,14 +1694,8 @@ function Show-InstallerAnalysisOptions {
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <ListBox Grid.Column="0" Grid.Row="0" x:Name="lstNav" BorderThickness="0" Padding="0,8,0,0">
-            <ListBox.ItemContainerStyle>
-                <Style TargetType="ListBoxItem">
-                    <Setter Property="Padding" Value="16,10,16,10"/>
-                    <Setter Property="FontSize" Value="13"/>
-                </Style>
-            </ListBox.ItemContainerStyle>
-        </ListBox>
+        <ListBox Grid.Column="0" Grid.Row="0" x:Name="lstNav" BorderThickness="0" Padding="0,8,0,0"
+                 ItemContainerStyle="{StaticResource ThemedListBoxItemStyle}"/>
         <Border Grid.Column="1" Grid.Row="0" Background="{DynamicResource MahApps.Brushes.Gray8}"/>
         <ScrollViewer Grid.Column="2" Grid.Row="0" VerticalScrollBarVisibility="Auto">
             <ContentControl x:Name="contentArea" Margin="20,18,20,18"/>
@@ -1625,12 +1703,8 @@ function Show-InstallerAnalysisOptions {
         <Border Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="1"
                 BorderBrush="{DynamicResource MahApps.Brushes.Gray8}" BorderThickness="0,1,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="20,12,20,12">
-                <Button x:Name="btnOK"     Content="OK"     MinWidth="90" Height="32" Margin="0,0,8,0" IsDefault="True"
-                        Style="{DynamicResource MahApps.Styles.Button.Square.Accent}"
-                        Controls:ControlsHelper.ContentCharacterCasing="Normal"/>
-                <Button x:Name="btnCancel" Content="Cancel" MinWidth="90" Height="32" IsCancel="True"
-                        Style="{DynamicResource MahApps.Styles.Button.Square}"
-                        Controls:ControlsHelper.ContentCharacterCasing="Normal"/>
+                <Button x:Name="btnOK"     Content="OK"     Style="{StaticResource DialogAccentButton}" IsDefault="True"/>
+                <Button x:Name="btnCancel" Content="Cancel" Style="{StaticResource DialogButton}"       IsCancel="True"/>
             </StackPanel>
         </Border>
     </Grid>
@@ -1642,15 +1716,8 @@ function Show-InstallerAnalysisOptions {
     $dlg    = [System.Windows.Markup.XamlReader]::Load($xmlReader)
     Install-TitleBarDragFallback -Window $dlg
 
-    $theme = [ControlzEx.Theming.ThemeManager]::Current.DetectTheme($Owner)
-    if ($theme) { [void][ControlzEx.Theming.ThemeManager]::Current.ChangeTheme($dlg, $theme) }
     $dlg.Owner = $Owner
-    try {
-        $dlg.WindowTitleBrush          = $Owner.WindowTitleBrush
-        $dlg.NonActiveWindowTitleBrush = $Owner.NonActiveWindowTitleBrush
-        $dlg.GlowBrush                 = $Owner.GlowBrush
-        $dlg.NonActiveGlowBrush        = $Owner.NonActiveGlowBrush
-    } catch { $null = $_ }
+    Set-DialogTheme -Dialog $dlg
 
     $lstNav      = $dlg.FindName('lstNav')
     $contentArea = $dlg.FindName('contentArea')
@@ -1658,9 +1725,9 @@ function Show-InstallerAnalysisOptions {
     $btnCancel   = $dlg.FindName('btnCancel')
 
     $panels = @(
-        (New-PathPickerPanel -Name '7-Zip Path' -Heading '7-Zip executable' -Description 'Path to 7z.exe for payload listing + extraction. Leave blank to auto-detect in Program Files.' -PrefKey 'SevenZipPath'  -PickerType File -FileFilter '7z.exe|7z.exe|All files|*.*' -Watermark 'C:\Program Files\7-Zip\7z.exe (auto-detect when blank)'),
+        (New-PathPickerPanel -Name '7-Zip Path' -Heading '7-Zip Executable' -Description 'Path to 7z.exe for payload listing + extraction. Leave blank to auto-detect in Program Files.' -PrefKey 'SevenZipPath'  -PickerType File -FileFilter '7z.exe|7z.exe|All files|*.*' -Watermark 'C:\Program Files\7-Zip\7z.exe (auto-detect when blank)'),
         (New-LoggingPanel),
-        (New-PathPickerPanel -Name 'Reports'    -Heading 'Reports folder'    -Description 'Default folder for CSV and HTML exports. The Save dialog still lets you pick an ad-hoc location per export.' -PrefKey 'ReportsFolder' -PickerType Folder -Watermark 'Defaults to ./Reports next to the script'),
+        (New-PathPickerPanel -Name 'Reports'    -Heading 'Reports Folder'    -Description 'Default folder for CSV and HTML exports. The Save dialog still lets you pick an ad-hoc location per export.' -PrefKey 'ReportsFolder' -PickerType Folder -Watermark 'Defaults to ./Reports next to the script'),
         (New-AboutPanel)
     )
 
@@ -1897,7 +1964,8 @@ $btnExportCsv.Add_Click({
         Add-LogLine    ('Export CSV: wrote {0}' -f $out)
         Set-StatusText ('Exported CSV: {0}' -f [System.IO.Path]::GetFileName($out))
     } catch {
-        Add-LogLine ('Export CSV failed: {0}' -f $_.Exception.Message)
+        Write-Log ('Export CSV failed: {0}' -f $_.Exception.Message) -Level ERROR -Quiet
+        Add-LogLine 'Export CSV failed. The log file has the details.'
     }
 })
 
@@ -1912,7 +1980,8 @@ $btnExportHtml.Add_Click({
         Add-LogLine    ('Export HTML: wrote {0}' -f $out)
         Set-StatusText ('Exported HTML: {0}' -f [System.IO.Path]::GetFileName($out))
     } catch {
-        Add-LogLine ('Export HTML failed: {0}' -f $_.Exception.Message)
+        Write-Log ('Export HTML failed: {0}' -f $_.Exception.Message) -Level ERROR -Quiet
+        Add-LogLine 'Export HTML failed. The log file has the details.'
     }
 })
 
@@ -1937,7 +2006,7 @@ function Invoke-PayloadExtractAll {
     # Show the progress overlay during the extract. 7z.exe on a 300MB
     # installer can run for minutes; without the overlay the shell looks
     # frozen. Same spinner used by Invoke-AnalysisPipeline.
-    $txtProgressTitle.Text = 'Extracting payload...'
+    $txtProgressTitle.Text = 'Extracting Payload...'
     $txtProgressStep.Text  = ('Running 7z.exe x "{0}" -o"{1}"' -f [System.IO.Path]::GetFileName($script:LastFileInfo.FullPath), $Target)
     $progressOverlay.Visibility = [System.Windows.Visibility]::Visible
     $window.Dispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Render)
@@ -1952,7 +2021,8 @@ function Invoke-PayloadExtractAll {
             Set-StatusText 'Extract failed: 7-Zip reported an error.'
         }
     } catch {
-        Add-LogLine ('Extract Payload failed: {0}' -f $_.Exception.Message)
+        Write-Log ('Extract Payload failed: {0}' -f $_.Exception.Message) -Level ERROR -Quiet
+        Add-LogLine 'Extract Payload failed. The log file has the details.'
         Set-StatusText 'Extract failed: 7-Zip could not be run.'
     } finally {
         $progressOverlay.Visibility = [System.Windows.Visibility]::Collapsed
@@ -1980,7 +2050,7 @@ $btnExtractAll.Add_Click({
     } catch { $null = $_ }
     if ($existingCount -gt 0) {
         $ans = Show-ThemedMessage -Owner $window `
-            -Title   'Target folder is not empty' `
+            -Title   'Target Folder Is Not Empty' `
             -Message ('"{0}" already contains {1} item(s). Extracting may overwrite files with the same names. Continue?' -f $target, $existingCount) `
             -Buttons 'YesNo' -Icon 'Warn'
         if ($ans -ne 'Yes') {
@@ -2159,7 +2229,8 @@ function Open-EmbeddedInNewWindow {
         Start-Process -FilePath $psExe -ArgumentList $relaunchArgs | Out-Null
         Add-LogLine ('Spawned analyzer for {0}' -f $extracted)
     } catch {
-        Add-LogLine ('Open in new window failed: {0}' -f $_.Exception.Message)
+        Write-Log ('Open in new window failed: {0}' -f $_.Exception.Message) -Level ERROR -Quiet
+        Add-LogLine 'Open in new window failed. The log file has the details.'
     }
 }
 

@@ -31,7 +31,7 @@ Start the tool as a standard user.
 
 | Message or symptom | Cause | Fix |
 |---|---|---|
-| `Export CSV failed:` | The reports folder is not writable. | Set another folder in **Options > Reports**. |
+| `Export CSV failed.` | The reports folder is not writable. | Set another folder in **Options > Reports**. |
 
 ## Links
 

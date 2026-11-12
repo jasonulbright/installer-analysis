@@ -49,7 +49,7 @@ The reports folder is on the **Reports** page of [Options dialog](options.md).
 
 | Message or symptom | Cause | Fix |
 |---|---|---|
-| `Export CSV failed: <reason>` and `Export HTML failed: <reason>` | The tool cannot write the file. | Read the reason. Choose a writable folder. |
+| `Export CSV failed. The log file has the details.` and `Export HTML failed. The log file has the details.` | The tool cannot write the file. | Read the log file. Choose a writable folder. |
 | `Copy JSON: no analysis result yet.` | No file is analyzed. | Open a file first. |
 
 ## Links
