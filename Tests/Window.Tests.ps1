@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 # Window tests. The main window and the dialogs that the script builds from XAML
 # text are opened off screen on an STA thread, in both themes and at 1024x720 and
 # 1440x900, and measured. The app-specific names live in WindowConfig.ps1.

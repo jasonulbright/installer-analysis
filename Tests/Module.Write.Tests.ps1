@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 # The functions that write: payload extraction with 7-Zip, and the CSV and HTML exports.
 # 7z.exe is replaced by a small .cmd file (New-FakeSevenZip in TestHelpers.ps1) that
 # writes files, a log of its command line, and an exit code that the test chooses.

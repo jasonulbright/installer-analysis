@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 # Checks that RELEASING.md asks for by hand: one version in three places, a manifest that
 # matches the module, and files that PowerShell 5.1 reads correctly.
 

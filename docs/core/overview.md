@@ -43,7 +43,7 @@ An uninstaller file is not an installer. The tool does not know it as an install
 
 ### Copy a path or open its folder
 
-Right-click the path box, or press Shift+F10 with the focus in it. The menu has **Cut**, **Copy**, **Paste**, **Select All**, **Copy path**, **Open enclosing folder** and **Re-analyze**.
+Right-click the path box, or press Shift+F10 with the focus in it. The menu has **Cut**, **Copy**, **Paste**, **Select All**, **Copy Path**, **Open Enclosing Folder** and **Re-Analyze**.
 
 This guide did not capture the menu: a menu is a separate window that the capture does not include.
 

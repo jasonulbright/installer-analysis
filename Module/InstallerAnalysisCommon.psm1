@@ -1402,8 +1402,8 @@ function Get-VelopackMetadata {
         $result.HeaderAvailable = $true
     }
     catch {
-        $result.Note = "Velopack metadata unavailable: $($_.Exception.Message)"
-        Write-Log $result.Note -Level WARN
+        $result.Note = 'Velopack metadata unavailable. The log file has the details.'
+        Write-Log ("Velopack metadata unavailable: " + $_.Exception.Message) -Level WARN -Quiet
     }
     finally {
         if ($reader) { $reader.Dispose() }
@@ -3650,7 +3650,8 @@ function Get-InnoSetupMetadata {
             if ($block.Bytes.Length -lt $budget) { $decodeNote = 'Setup header record ends inside the decoded block.'; break }
         }
         catch {
-            $decodeNote = 'Setup header record could not be decoded: ' + $_.Exception.Message
+            $decodeNote = 'Setup header record could not be decoded. The log file has the details.'
+            Write-Log ('Setup header record could not be decoded: ' + $_.Exception.Message) -Level WARN -Quiet
             break
         }
     }
@@ -3984,7 +3985,8 @@ function Get-InnoRegistrySettings {
             if ($block.Bytes.Length -lt $budget) { $result.Note = 'Setup entry lists end inside the decoded block.'; return $result }
         }
         catch {
-            $result.Note = 'Setup entry lists could not be decoded: ' + $_.Exception.Message
+            $result.Note = 'Setup entry lists could not be decoded. The log file has the details.'
+            Write-Log ('Setup entry lists could not be decoded: ' + $_.Exception.Message) -Level WARN -Quiet
             return $result
         }
     }
@@ -4560,7 +4562,8 @@ function Get-MsiRegistrySettings {
         $result.Entries = $rows.ToArray()
     }
     catch {
-        $result.Note = 'Registry tables could not be read: ' + $_.Exception.Message
+        $result.Note = 'Registry tables could not be read. The log file has the details.'
+        Write-Log ('Registry tables could not be read: ' + $_.Exception.Message) -Level WARN -Quiet
     }
     finally {
         foreach ($o in @($db, $installer)) {

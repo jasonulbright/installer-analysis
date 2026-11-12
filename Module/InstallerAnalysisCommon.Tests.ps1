@@ -1,4 +1,4 @@
-﻿#Requires -Modules Pester
+﻿#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 
 <#
 .SYNOPSIS
@@ -422,9 +422,11 @@ Describe 'Velopack Setup analysis' {
         $stream = [IO.File]::OpenWrite($p)
         try { $stream.Position = $Position; $stream.Write([BitConverter]::GetBytes([long]$Value), 0, 8) } finally { $stream.Dispose() }
         Get-InstallerType -Path $p | Should -Be 'Velopack'
+        Mock Write-Log { } -ModuleName InstallerAnalysisCommon
         $m = Get-VelopackMetadata -Path $p
         $m.HeaderAvailable | Should -BeFalse
-        $m.Note | Should -Match 'outside the file|missing'
+        $m.Note | Should -Be 'Velopack metadata unavailable. The log file has the details.'
+        Should -Invoke Write-Log -ModuleName InstallerAnalysisCommon -ParameterFilter { $Quiet -and $Message -match 'outside the file|missing' }
         $m.SilentUninstallCommand | Should -BeNullOrEmpty
         Get-UninstallRegistryKey -InstallerType 'Velopack' -PackageMetadata $m | Should -BeNullOrEmpty
         $sw = Get-SilentSwitches -InstallerType 'Velopack' -FilePath $p -PackageMetadata $m
@@ -434,9 +436,11 @@ Describe 'Velopack Setup analysis' {
 
     It 'reports a missing manifest without inventing an app id' {
         $p = New-VelopackTestInstaller -Path (Join-Path $TestDrive 'no-manifest.exe') -NoManifest
+        Mock Write-Log { } -ModuleName InstallerAnalysisCommon
         $m = Get-VelopackMetadata -Path $p
         $m.HeaderAvailable | Should -BeFalse
-        $m.Note | Should -Match 'nuspec'
+        $m.Note | Should -Be 'Velopack metadata unavailable. The log file has the details.'
+        Should -Invoke Write-Log -ModuleName InstallerAnalysisCommon -ParameterFilter { $Quiet -and $Message -match 'nuspec' }
         $m.UninstallRegistryKey | Should -BeNullOrEmpty
     }
 

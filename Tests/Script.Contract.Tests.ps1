@@ -1,4 +1,4 @@
-#Requires -Modules Pester
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 # The start script and the module call functions of the app module and of
 # SuiteCommon by name. A call with a parameter that the function does not have
 # fails only when the user clicks the button. This test checks every call with

@@ -27,7 +27,7 @@ Use it to find the MSI inside a setup EXE, or to read an inner installer on its 
 
 1. Select **Inner Installers** in the sidebar. The button shows only when the payload has installers.
 2. Select a row and select **Analyze Selected**. The tool extracts the entry to a sandboxed temporary folder and analyzes it. A breadcrumb bar with a back button shows the path. The drill depth is at most 5.
-3. Select **Open in new window** to compare the outer and the inner installer side by side.
+3. Select **Open in New Window** to compare the outer and the inner installer side by side.
 4. Select **Extract All Inner** to extract the inner installers to a folder.
 
 ### Browse the files
@@ -36,7 +36,7 @@ Select **File Browser** in the sidebar. The tree shows the folders and the grid 
 
 ### Use the right-click menus
 
-A payload row has **Extract to temp folder**, **Copy name**, **Copy full path** and **Hash (SHA-256)**. An inner installer row also has **Analyze Selected** and **Open in new window**.
+A payload row has **Extract to Temp Folder**, **Copy Name**, **Copy Full Path** and **Hash This Entry (SHA-256)**. An inner installer row also has **Analyze Selected** and **Open in New Window**.
 
 This guide ran on a lab computer without 7-Zip. It shows the empty **Payload** view. The **Inner Installers** and **File Browser** views and the right-click menus were read from the README and the code. They were not run.
 
@@ -44,7 +44,7 @@ This guide ran on a lab computer without 7-Zip. It shows the empty **Payload** v
 
 | Control | Effect |
 |---|---|
-| **Analyze Selected**, **Open in new window**, **Extract All Inner** | Work on the inner installers. |
+| **Analyze Selected**, **Open in New Window**, **Extract All Inner** | Work on the inner installers. |
 | **Extract Selected**, **Extract This Folder** | Extract files. |
 | **Up** | Goes to the parent folder. |
 

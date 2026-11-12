@@ -1,5 +1,5 @@
 # Sample installers: copies of files that every lab computer has. The capture only reads them.
-$samples = 'C:\guide\samples'
+$samples = Join-Path $appDir 'ui\samples'
 New-Item -ItemType Directory $samples -Force | Out-Null
 $msi = Get-ChildItem C:\Windows\Installer -Filter *.msi -ErrorAction SilentlyContinue | Where-Object { $_.Length -gt 200KB -and $_.Length -lt 3MB } | Select-Object -First 1
 if ($msi) { Copy-Item $msi.FullName (Join-Path $samples 'sample-package.msi') }
@@ -56,6 +56,6 @@ Section 'light' {
 Section 'persist' { Invoke-El (Get-El $win 'btnViewFiles'); Start-Sleep -Milliseconds 600; Invoke-El (Get-El $win 'Close'); Start-Sleep -Seconds 8; $win = Start-App 'start-installeranalysis.ps1' 'Installer Analysis'; Shot $win 'start-reopen' }
 Section 'files' {
   New-Item -ItemType Directory "$OutDir\files" -Force | Out-Null
-  Get-ChildItem $appDir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notlike '*\Lib\*' -and $_.FullName -notlike '*\Module\*' -and $_.Extension -in '.json', '.log', '.csv', '.html', '.txt' } | ForEach-Object { Log ('file: ' + $_.FullName.Substring($appDir.Length) + ' ' + $_.Length); Copy-Item $_.FullName ("$OutDir\files\" + $_.Name) -Force }
+  Get-ChildItem $appDir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $rel = $_.FullName.Substring($appDir.TrimEnd('\').Length).TrimStart('\'); $rel -notlike 'Lib\*' -and $rel -notlike 'Module\*' -and $rel -notlike 'ui\*' -and $_.Extension -in '.json', '.log', '.csv', '.html', '.txt' } | ForEach-Object { Log ('file: ' + $_.FullName.Substring($appDir.Length) + ' ' + $_.Length); Copy-Item $_.FullName ("$OutDir\files\" + $_.Name) -Force }
 }
 Stop-App 'start-installeranalysis.ps1'

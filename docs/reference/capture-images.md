@@ -6,6 +6,8 @@ One command regenerates every image of this guide.
 
 `tools\guide-capture\Invoke-GuideCapture.ps1` copies the tool to a lab computer, starts it in an interactive session of a lab account, walks every view, dialog and setting with Windows UI Automation, takes the screenshots at 1440 by 900 pixels, copies the PNG files back to `docs\images` and removes its files from the lab computer. It replaces only the images that exist already.
 
+One capture runs at a time on a lab computer. The command takes the lock file `C:\guide\capture.lock` and waits while another capture holds it. A lock older than 60 minutes is stale. The command works in its own folder `C:\guide\installer-analysis`, removes its own files and the lock at the end, and never removes `C:\guide`.
+
 ## When to use it
 
 Use it after a change that alters the window, and before a release.

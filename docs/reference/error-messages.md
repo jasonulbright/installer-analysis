@@ -20,7 +20,7 @@ None.
 |---|---|---|---|
 | `7-Zip not found. Configure the path in Options > 7-Zip.` | Log | The payload views need `7z.exe` and the tool cannot find it. | Install 7-Zip or set the path in Options. |
 | `Copy Summary: no analysis result yet.` and the same for Copy JSON, Export CSV, Export HTML | Log | No file is analyzed. | Open a file first. |
-| `Export CSV failed: <reason>` and `Export HTML failed: <reason>` | Log | The tool cannot write the file. | Read the reason. Choose a writable folder. |
+| `Export CSV failed. The log file has the details.` and `Export HTML failed. The log file has the details.` | Log | The tool cannot write the file. | Read the log file. Choose a writable folder. |
 | `Analyze Selected: no row selected.` | Log | No inner installer is selected. | Select a row. |
 | `Analyze Selected: entry not analyzable (<reason>)` | Log | The entry is not an installer. | Select an installer entry. |
 | `Analyze Selected: extraction failed for <name>` | Log | 7-Zip could not extract the entry. | Read the log. Extract the entry by hand. |
