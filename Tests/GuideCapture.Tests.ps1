@@ -121,6 +121,14 @@ Describe 'Capture scripts' {
         $script:InvokeText | Should -Match '\$again = Get-Item -LiteralPath \$path'
         $script:InvokeText | Should -Match 'Move-Item -LiteralPath \$path -Destination \$stale -ErrorAction Stop'
         $script:InvokeText | Should -Match '\$stale = "\$path\.stale\.\$token"'
+        # After the rename the age of the moved file is read again. A live lock moves back. Only a stale one is deleted.
+        $script:InvokeText | Should -Match '\$moved = Get-Item -LiteralPath \$stale -ErrorAction Stop'
+        $script:InvokeText | Should -Match '\$moved\.LastWriteTime\)\.TotalMinutes -gt \$staleMinutes'
+        $script:InvokeText | Should -Match 'Move-Item -LiteralPath \$stale -Destination \$path -ErrorAction Stop'
+        $iRead = $script:InvokeText.IndexOf('$moved = Get-Item')
+        $iDelete = $script:InvokeText.IndexOf('Remove-Item -LiteralPath $stale')
+        $iRead | Should -BeGreaterThan 0
+        $iDelete | Should -BeGreaterThan $iRead -Because 'the delete follows the age check of the moved file'
         $script:InvokeText | Should -Not -Match '(?s)\$again = Get-Item.{0,400}Remove-Item -LiteralPath \$path\b'
         $script:InvokeText | Should -Match 'if \(-not \(Test-Path -LiteralPath \$path\)\) \{ continue \}'
         $script:InvokeText | Should -Match '\.LastWriteTime = Get-Date'

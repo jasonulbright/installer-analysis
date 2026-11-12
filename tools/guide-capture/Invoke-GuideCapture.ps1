@@ -102,7 +102,15 @@ try {
                         $stale = "$path.stale.$token"
                         try {
                             Move-Item -LiteralPath $path -Destination $stale -ErrorAction Stop
-                            Remove-Item -LiteralPath $stale -Force -ErrorAction SilentlyContinue
+                            # The file that was moved may be a fresh lock that another waiter created between the read and the
+                            # rename. Read its age again. A lock that is not older than the stale age goes back and counts as busy.
+                            $moved = Get-Item -LiteralPath $stale -ErrorAction Stop
+                            if (((Get-Date) - $moved.LastWriteTime).TotalMinutes -gt $staleMinutes) {
+                                Remove-Item -LiteralPath $stale -Force -ErrorAction SilentlyContinue
+                            }
+                            else {
+                                Move-Item -LiteralPath $stale -Destination $path -ErrorAction Stop
+                            }
                         }
                         catch { $null = $_ }
                     }
