@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Restore the weight of the page title, the progress title, the log header, the section headings, the About keys and the current breadcrumb to SemiBold. The light theme change had made them bold. Only field titles and the app title are bold.
+- Restore the weight of the page title, the progress title, the log header, the section headings, the About keys, the drop prompt and the current breadcrumb to SemiBold. The light theme change had made them bold. Only field titles and the app title are bold.
 
 ### Added
 

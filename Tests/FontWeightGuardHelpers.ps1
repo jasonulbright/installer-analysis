@@ -30,7 +30,7 @@ $script:FwConfig = @{
     KeptBoldStyle   = @()
     FieldTitleName  = @()
     StaticName      = @('txtModuleTitle', 'txtModuleSubtitle', 'txtProgressTitle', 'lblLogOutput', 'txtStatus', 'txtVersion')
-    AllowedText     = @('Drop Installer to Analyze')
+    AllowedText     = @()
     ExemptType      = @('Button', 'ToggleButton', 'RepeatButton')
     CodeAllowed     = @('Set-ConnectionTextTheme:title')
 }
