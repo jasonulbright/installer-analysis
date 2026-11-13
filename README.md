@@ -11,6 +11,8 @@ rights, no network, and no Configuration Manager connection.
 
 ![Installer Analysis](screenshots/screenshot.png)
 
+The footer shows the status text of the tool. The tool has no Configuration Manager connection, so the footer shows no site code and no site server.
+
 Drop an installer onto the window and the Overview tab fills in: detected
 installer type, architecture, signature status, deployment fields
 (DisplayName, DisplayVersion, Vendor, silent install / uninstall command
@@ -48,7 +50,7 @@ guessing.
 
 ## What's in the Overview
 
-![The Overview tab analyzing a 7-Zip SFX installer end-to-end](screenshots/example.png)
+![The Overview tab after the analysis of an EXE installer](screenshots/example.png)
 
 Every analysis surfaces:
 

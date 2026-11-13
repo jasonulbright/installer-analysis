@@ -2529,6 +2529,13 @@ if (-not [string]::IsNullOrWhiteSpace($StartupFile) -and (Test-Path -LiteralPath
     })
 }
 
+# Footer. The status text takes the shared footer style of SuiteCommon. The app has no ConfigMgr connection,
+# so the site text of the footer stays hidden.
+$window.Add_Loaded({
+    $script:FooterSite = Initialize-SuiteFooter -Window $window -StatusName 'txtStatus'
+    if ($null -ne $script:FooterSite) { $script:FooterSite.Visibility = [System.Windows.Visibility]::Collapsed }
+})
+
 # =============================================================================
 # Ship it.
 # =============================================================================
