@@ -207,6 +207,13 @@ try {
         }
         throw
     }
+    # The README shows guide images. Each README file takes the captured image of the same view.
+    $readmeImages = @{ 'screenshot.png' = 'overview-msi.png'; 'example.png' = 'overview-exe.png' }
+    foreach ($key in $readmeImages.Keys) {
+        $source = $captured | Where-Object { $_.Name -eq $readmeImages[$key] } | Select-Object -First 1
+        $target = Join-Path (Join-Path $repo 'screenshots') $key
+        if ($source -and (Test-Path $target)) { Copy-Item $source.FullName $target -Force }
+    }
     $succeeded = $true
 }
 finally {

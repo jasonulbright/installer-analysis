@@ -662,7 +662,7 @@
 
             <Border Grid.Row="6" Padding="8,4,8,4"
                     Background="{DynamicResource MahApps.Brushes.Gray10}">
-                <TextBlock x:Name="txtStatus" Text="Ready." FontSize="11"/>
+                <TextBlock x:Name="txtStatus" Text="Ready."/>
             </Border>
         </Grid>
     </Grid>

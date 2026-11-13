@@ -9,6 +9,15 @@
 ### Added
 
 - Add FontWeight.Guard.Tests.ps1 and FontWeightGuardHelpers.ps1. They fail when a bold weight is set on a label that is not a field title or an app title, in XAML, in the XAML of the scripts and in code that sets a weight at run time.
+- Add Footer.Guard.Tests.ps1. It checks the footer status element, the shared footer font and the footer calls. It also checks that the tool has no site code box and no SMS Provider box. It has bad-sample tests.
+- Add a bad-sample test to FontWeight.Guard.Tests.ps1: a bold label before a panel that holds an input is not a field title.
+
+### Changed
+
+- Show the status text in the shared footer style of SuiteCommon: the same font in both themes, and no font setting on the status element. The tool has no Configuration Manager connection, so the footer shows no site text.
+- Refresh the vendored SuiteCommon library to release 2026.11.13.0082.
+- Tighten the field title rule of FontWeightGuardHelpers.ps1. A label counts as a field title only when an input follows or precedes it directly, or shares its grid row.
+- Update the README text and the README images. Retake the images of the user guide. The capture tool takes the README images from the same run.
 
 ## [2026.11.12.0023] - 2026-11-12
 
