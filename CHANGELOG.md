@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Restore the weight of the page title, the progress title, the log header, the section headings, the About keys, the drop prompt and the current breadcrumb to SemiBold. The light theme change had made them bold. Only field titles and the app title are bold.
+
+### Added
+
+- Add FontWeight.Guard.Tests.ps1 and FontWeightGuardHelpers.ps1. They fail when a bold weight is set on a label that is not a field title or an app title, in XAML, in the XAML of the scripts and in code that sets a weight at run time.
+
 ## [2026.11.12.0023] - 2026-11-12
 
 ## 1 theme fix: white text on every blue button in light mode

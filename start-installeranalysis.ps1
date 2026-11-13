@@ -914,7 +914,7 @@ function Update-BreadcrumbBar {
         $btn.SetResourceReference([System.Windows.Controls.Button]::StyleProperty, 'BreadcrumbButtonStyle')
         if ($seg.IsCurrent) {
             $btn.IsEnabled = $false
-            $btn.FontWeight = [System.Windows.FontWeights]::Bold
+            $btn.FontWeight = [System.Windows.FontWeights]::SemiBold
         } else {
             $localTarget = [int]$seg.FrameIndex
             $btn.Add_Click({
@@ -1385,7 +1385,7 @@ function New-OptionsSection {
     $h = New-Object System.Windows.Controls.TextBlock
     $h.Text = $Heading
     $h.FontSize = 18
-    $h.FontWeight = [System.Windows.FontWeights]::Bold
+    $h.FontWeight = [System.Windows.FontWeights]::SemiBold
     $h.Margin = [System.Windows.Thickness]::new(0,0,0,6)
     [void]$sp.Children.Add($h)
 
@@ -1542,7 +1542,7 @@ function New-AboutPanel {
         $k = New-Object System.Windows.Controls.TextBlock
         $k.Text = [string]$rows[$i].K
         $k.FontSize = 12
-        $k.FontWeight = [System.Windows.FontWeights]::Bold
+        $k.FontWeight = [System.Windows.FontWeights]::SemiBold
         $k.Margin = [System.Windows.Thickness]::new(0,0,16,6)
         $k.VerticalAlignment = [System.Windows.VerticalAlignment]::Top
         [System.Windows.Controls.Grid]::SetRow($k, $i)
