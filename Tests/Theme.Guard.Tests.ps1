@@ -3,7 +3,7 @@
 # behavior test builds a Button without a window in an STA runspace. They run on Windows PowerShell 5.1 and PowerShell 7
 # and open no window.
 #   (a) Every blue background in XAML and PowerShell has a white foreground, also in hover, pressed and selected states.
-#   (b) No font size, weight, style or text decoration depends on the theme. Every title is bold. A title of a site code
+#   (b) No font size, weight, style or text decoration depends on the theme. Only field titles and the app title are bold (FontWeight.Guard.Tests.ps1). A title of a site code
 #       or SMS Provider box is bold and 14 pt or larger, and its value is not (this app has no such box today).
 #   (c) No banned word is in a tooltip, a UI string, the README or the user guide. A tooltip is one short sentence.
 #   (d) Every button takes the shared themed style. The dialog has one secondary style. Titles are in Title Case.
@@ -313,26 +313,25 @@ Describe 'Fonts do not depend on the theme (b)' {
         $strCode | Should -Not -Match '\$box\.(FontSize|FontWeight)\s*='
     }
 
-    It 'uses no SemiBold or other weight than Bold for a title or label in the XAML of <_.Source>' -ForEach $script:arrOwnXamlDocD {
-        $_.Text | Should -Not -Match 'FontWeight(=|" Value=)"(SemiBold|Light|Medium|Normal|Regular)"'
-    }
-
-    It 'sets every font weight in the script and in the module to Bold' -ForEach $script:arrAppPsFileD {
-        @(Get-NonBoldWeight -Path $Path) | Should -BeNullOrEmpty
-    }
-
-    It 'flags a font weight that is not Bold' {
-        $strTemp = Write-TempScript "`$a.FontWeight = [System.Windows.FontWeights]::SemiBold`n`$b.FontWeight = [System.Windows.FontWeights]::Bold`n"
-        try { @(Get-NonBoldWeight -Path $strTemp).Count | Should -Be 1 }
-        finally { Remove-Item -LiteralPath $strTemp -Force -ErrorAction SilentlyContinue }
-    }
-
-    It 'sets Bold on every heading of 14 pt or more in <_.Source>' -ForEach $script:arrOwnXamlDocD {
-        [xml]$xml = $_.Text
-        $arrBad = foreach ($objText in @($xml.SelectNodes("//*[local-name()='TextBlock'][@FontSize]"))) {
-            if ([double]$objText.GetAttribute('FontSize') -ge 14 -and $objText.GetAttribute('FontWeight') -ne 'Bold') { '{0} {1}' -f $objText.GetAttribute('Name', $script:strXamlNamespace), $objText.GetAttribute('Text') }
+    It 'keeps the page titles and the log header SemiBold and the app title Bold in MainWindow.xaml' {
+        $objDoc = @($script:arrOwnXamlDoc | Where-Object { $_.Source -eq 'MainWindow.xaml' })[0]
+        [xml]$xml = $objDoc.Text
+        foreach ($hashCase in @(@{ Name = 'txtAppTitle'; Weight = 'Bold' }, @{ Name = 'txtModuleTitle'; Weight = 'SemiBold' }, @{ Name = 'txtProgressTitle'; Weight = 'SemiBold' }, @{ Name = 'lblLogOutput'; Weight = 'SemiBold' })) {
+            $objElement = $xml.SelectSingleNode(("//*[@*[local-name()='Name']='{0}']" -f $hashCase.Name))
+            $objElement | Should -Not -BeNullOrEmpty -Because $hashCase.Name
+            $objElement.GetAttribute('FontWeight') | Should -Be $hashCase.Weight -Because $hashCase.Name
         }
-        @($arrBad) | Should -BeNullOrEmpty
+    }
+
+    It 'keeps the breadcrumb, the section heading and the about keys SemiBold in the script' {
+        foreach ($hashCase in @(@{ Function = 'Update-BreadcrumbBar'; Variable = 'btn' }, @{ Function = 'New-OptionsSection'; Variable = 'h' }, @{ Function = 'New-AboutPanel'; Variable = 'k' })) {
+            $objAst = [System.Management.Automation.Language.Parser]::ParseFile($script:strShellPath, [ref]$null, [ref]$null)
+            $objFunction = $objAst.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $hashCase.Function }, $true)
+            $objFunction | Should -Not -BeNullOrEmpty -Because $hashCase.Function
+            $arrWeight = @($objFunction.FindAll({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and $n.Left -is [System.Management.Automation.Language.MemberExpressionAst] -and [string]$n.Left.Member.Value -eq 'FontWeight' -and $n.Left.Expression.Extent.Text -eq ('$' + $hashCase.Variable) }, $true))
+            $arrWeight.Count | Should -BeGreaterThan 0 -Because $hashCase.Function
+            foreach ($objWeight in $arrWeight) { $objWeight.Right.Extent.Text | Should -Match 'FontWeights\]::SemiBold' -Because $hashCase.Function }
+        }
     }
 
     It 'uses no theme trigger on a font property in <_.Source>' -ForEach $script:arrXamlDocD {
@@ -574,7 +573,7 @@ Describe 'Every button takes the shared themed style (d)' {
 
     It 'flags a button that the script builds without a themed style and a button with a literal color' {
         $strTemp = Write-TempScript ("function A {`n  `$b = New-Object System.Windows.Controls.Button`n  `$b.Content = 'x'`n}`nfunction B {`n  `$b = New-Object System.Windows.Controls.Button`n  `$b.SetResourceReference([System.Windows.Controls.Button]::StyleProperty, 'MahApps.Styles.Button.Square')`n}`n" +
-            "function C {`n  `$b = New-Object System.Windows.Controls.Button`n  `$b.SetResourceReference([System.Windows.Controls.Button]::StyleProperty, 'DialogButton')`n  `$b.Foreground = 'White'`n  `$b.FontWeight = [System.Windows.FontWeights]::SemiBold`n}`n" +
+            "function C {`n  `$b = New-Object System.Windows.Controls.Button`n  `$b.SetResourceReference([System.Windows.Controls.Button]::StyleProperty, 'DialogButton')`n  `$b.Foreground = 'White'`n  `$b.FontWeight = [System.Windows.FontWeights]::Light`n}`n" +
             "function D {`n  `$b = New-Object System.Windows.Controls.Button`n  `$b.SetResourceReference([System.Windows.Controls.Button]::StyleProperty, 'DialogButton')`n  `$b.FontWeight = [System.Windows.FontWeights]::Bold`n}`n")
         try { @(Get-CodeButtonViolation -Path $strTemp -AllowedKey @('DialogButton')).Count | Should -Be 4 }
         finally { Remove-Item -LiteralPath $strTemp -Force -ErrorAction SilentlyContinue }

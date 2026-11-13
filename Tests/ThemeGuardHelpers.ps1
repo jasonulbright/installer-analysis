@@ -496,7 +496,7 @@ function Get-DialogButtonViolation {
 
 # Returns one text per Button that a script builds in code and does not theme: it takes the style from one of the allowed
 # style keys with SetResourceReference in the same function, it sets no literal Foreground, Background or BorderBrush, and
-# it sets no font weight other than Bold.
+# it sets no font weight other than Bold or SemiBold (the weights of the app before the theme change).
 function Get-CodeButtonViolation {
     param([string]$Path, [string[]]$AllowedKey)
     $objAst = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$null, [ref]$null)
@@ -517,18 +517,8 @@ function Get-CodeButtonViolation {
             $strMember = [string]$objSet.Left.Member.Value
             if ($strMember -in 'Background', 'Foreground', 'BorderBrush') { '{0}:{1}: Button ${2} sets {3} in code' -f (Split-Path -Leaf $Path), $objSet.Extent.StartLineNumber, $strVariable, $strMember }
             if ($strMember -in 'Width', 'MinWidth', 'MaxWidth', 'Height', 'MinHeight', 'MaxHeight', 'Padding' -and @($AllowedKey | Where-Object { $_ -like 'Dialog*' }).Count -gt 0 -and @($arrStyle | Where-Object { $_.Arguments[1].Extent.Text -match "^'Dialog" }).Count -gt 0) { '{0}:{1}: dialog button ${2} sets {3} in code' -f (Split-Path -Leaf $Path), $objSet.Extent.StartLineNumber, $strVariable, $strMember }
-            if ($strMember -eq 'FontWeight' -and $objSet.Right.Extent.Text -notmatch 'FontWeights\]::Bold\b') { '{0}:{1}: Button ${2} sets a font weight other than Bold' -f (Split-Path -Leaf $Path), $objSet.Extent.StartLineNumber, $strVariable }
+            if ($strMember -eq 'FontWeight' -and $objSet.Right.Extent.Text -notmatch 'FontWeights\]::(Bold|SemiBold)\b') { '{0}:{1}: Button ${2} sets a font weight other than Bold or SemiBold' -f (Split-Path -Leaf $Path), $objSet.Extent.StartLineNumber, $strVariable }
         }
-    }
-}
-
-# Returns one text per font weight assignment in a script that is not Bold.
-function Get-NonBoldWeight {
-    param([string]$Path)
-    $objAst = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$null, [ref]$null)
-    $arrAssign = $objAst.FindAll({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and $n.Left -is [System.Management.Automation.Language.MemberExpressionAst] -and [string]$n.Left.Member.Value -eq 'FontWeight' }, $true)
-    foreach ($objAssign in $arrAssign) {
-        if ($objAssign.Right.Extent.Text -notmatch 'FontWeights\]::Bold\b') { '{0}:{1}: {2}' -f (Split-Path -Leaf $Path), $objAssign.Extent.StartLineNumber, $objAssign.Extent.Text }
     }
 }
 
