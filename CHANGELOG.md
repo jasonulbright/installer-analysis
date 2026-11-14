@@ -1,12 +1,14 @@
 # Changelog
 
-## [Unreleased]
+## [2026.11.14.0026] - 2026-11-14
+
+## 1 px gray border on every button in both themes
 
 ### Fixed
 
-- Show button borders at 1 px in gray, with no heavy border in the text color.
+- Show button borders at 1 px in gray, not in the text color.
 - Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
+- Make PowerShell sources and the files they read plain ASCII, with an encoding guard.
 
 ## [2026.11.14.0025] - 2026-11-14
 
@@ -17,14 +19,6 @@
 - Show inactive title bar text in white at 4.5:1 contrast or more in both themes.
 - Use shared border and disabled-text styles for text boxes, combo boxes and grid headers.
 - Show test windows at 80,80 when SUITE_VISIBLE_WINDOWS is 1, for visible runs.
-
-## [Unreleased]
-
-### Fixed
-
-- Show button borders at 1 px in gray, with no heavy border in the text color.
-- Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
 
 ## [2026.11.13.0024] - 2026-11-13
 
@@ -46,14 +40,6 @@
 - Refresh the vendored SuiteCommon library to release 2026.11.13.0082.
 - Tighten the field title rule of FontWeightGuardHelpers.ps1. A label counts as a field title only when an input follows or precedes it directly, or shares its grid row.
 - Update the README text and the README images. Retake the images of the user guide. The capture tool takes the README images from the same run.
-
-## [Unreleased]
-
-### Fixed
-
-- Show button borders at 1 px in gray, with no heavy border in the text color.
-- Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
 
 ## [2026.11.12.0023] - 2026-11-12
 
@@ -78,14 +64,6 @@
 
 - Add guard tests for the button styles and the state contrast.
 
-## [Unreleased]
-
-### Fixed
-
-- Show button borders at 1 px in gray, with no heavy border in the text color.
-- Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
-
 ## [2026.11.07.0022] - 2026-11-07
 
 ## 1 change to the window-test guard
@@ -93,14 +71,6 @@
 ### Changed
 
 - Run window tests only when the SUITE_ALLOW_WINDOW_TESTS opt-in is 1.
-
-## [Unreleased]
-
-### Fixed
-
-- Show button borders at 1 px in gray, with no heavy border in the text color.
-- Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
 
 ## [2026.11.07.0021] - 2026-11-07
 
@@ -117,14 +87,6 @@
 - Update the shared library to version 2026.11.07.0075.
 - Check the coverage floor only when the window tests run.
 
-## [Unreleased]
-
-### Fixed
-
-- Show button borders at 1 px in gray, with no heavy border in the text color.
-- Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
-
 ## [2026.11.07.0020] - 2026-11-07
 
 ## 1 fix and a user guide
@@ -137,14 +99,6 @@
 
 - Add the user guide (docs/index.md) with images of the running window.
 - Add tools/guide-capture, one command that regenerates every image of the guide on a lab computer.
-
-## [Unreleased]
-
-### Fixed
-
-- Show button borders at 1 px in gray, with no heavy border in the text color.
-- Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
 
 ## [2026.11.06.0019] - 2026-11-06
 
@@ -161,14 +115,6 @@
 - Fix a security issue in the CSV report export.
 - Report an error when the HTML report cannot be written.
 
-## [Unreleased]
-
-### Fixed
-
-- Show button borders at 1 px in gray, with no heavy border in the text color.
-- Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
-
 ## [2026.10.25.0018] - 2026-10-25
 
 ## 2 fixes
@@ -178,14 +124,6 @@
 - Fix a security issue in the HTML report export.
 - Import the module on its own outside the suite folder.
 
-## [Unreleased]
-
-### Fixed
-
-- Show button borders at 1 px in gray, with no heavy border in the text color.
-- Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
-
 ## [2026.10.12.0017] - 2026-10-12
 
 ## 1 PowerShell 7 fix
@@ -193,14 +131,6 @@
 ### Fixed
 
 - Keep the PowerShell 7 module roots when the tool runs under PowerShell 7.
-
-## [Unreleased]
-
-### Fixed
-
-- Show button borders at 1 px in gray, with no heavy border in the text color.
-- Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
 
 ## [2026.10.11.0016] - 2026-10-11
 
@@ -210,14 +140,6 @@
 
 - Double-click the title bar to maximize or restore the window.
 
-## [Unreleased]
-
-### Fixed
-
-- Show button borders at 1 px in gray, with no heavy border in the text color.
-- Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
-
 ## [2026.10.11.0015] - 2026-10-11
 
 ## 1 suite update notice
@@ -226,41 +148,17 @@
 
 - Show a notice when a newer suite release is available; the launcher installs it.
 
-## [Unreleased]
-
-### Fixed
-
-- Show button borders at 1 px in gray, with no heavy border in the text color.
-- Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
-
 ## [2026.10.07.0014] - 2026-10-07
 
 ### Changed
 
 - Sync the shared SuiteCommon module to 2026.10.07.0049.
 
-## [Unreleased]
-
-### Fixed
-
-- Show button borders at 1 px in gray, with no heavy border in the text color.
-- Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
-
 ## [2026.09.21.0013] - 2026-09-21
 
 ### Changed
 
 - Correct the branch name in the release procedure.
-
-## [Unreleased]
-
-### Fixed
-
-- Show button borders at 1 px in gray, with no heavy border in the text color.
-- Add guards for button styles, muted text brushes and the dialog theme call.
-- Make the PowerShell sources and the files they read plain ASCII, and add the encoding guard.
 
 ## [2026.09.21.0012] - 2026-09-21
 
