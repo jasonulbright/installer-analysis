@@ -13,13 +13,13 @@ function Get-KnownContrastDefect {
         'dark' { @() }
         'light' {
             # The sidebar buttons of the light theme come from the SuiteCommon palette (white-on-blue text passes; the
-            # border #006CBE on #0078D4 and the inactive title bar do not). The fix belongs in app-packager-suite.
+            # border #006CBE on #0078D4 does not). The fix belongs in app-packager-suite.
             @(
                 'btnViewEmbedded:DisabledBorder', 'btnViewEmbedded:EnabledBorder', 'btnViewFiles:DisabledBorder',
                 'btnViewFiles:EnabledBorder', 'btnViewMsi:DisabledBorder', 'btnViewMsi:EnabledBorder',
                 'btnViewOverview:DisabledBorder', 'btnViewOverview:EnabledBorder', 'btnViewPayload:DisabledBorder',
                 'btnViewPayload:EnabledBorder', 'btnViewRegistry:DisabledBorder', 'btnViewRegistry:EnabledBorder',
-                'btnViewStrings:DisabledBorder', 'btnViewStrings:EnabledBorder', 'titlebar:inactive'
+                'btnViewStrings:DisabledBorder', 'btnViewStrings:EnabledBorder'
             )
         }
     }
