@@ -1,4 +1,4 @@
-﻿#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
+#Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.1.0' }
 
 <#
 .SYNOPSIS
@@ -1685,7 +1685,7 @@ Describe 'New-AnalysisSummaryText' {
 
     It 'renders Squirrel markers + embedded nupkg reference' {
         # NupkgReferences is the actual field name produced by Get-SquirrelMetadata.
-        # An older version of this test asserted "EmbeddedNupkg" — that field has
+        # An older version of this test asserted "EmbeddedNupkg" - that field has
         # never existed on real metadata; the test passed against a phantom code
         # path. Fixed alongside the corresponding renderer fix.
         $fi = [PSCustomObject]@{ FileName = 'Setup.exe'; FileSizeFormatted = '60 MB'; SHA256='h'; Architecture='x86'; SignatureStatus='Valid' }
@@ -2837,7 +2837,7 @@ Describe 'Get-EmbeddedInstallers' {
 }
 
 # ============================================================================
-# Get-MspMetadata — Windows Installer Patch parser
+# Get-MspMetadata - Windows Installer Patch parser
 # ============================================================================
 
 Describe 'Get-MspMetadata' {

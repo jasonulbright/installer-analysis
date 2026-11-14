@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/github/license/jasonulbright/installer-analysis)](LICENSE)
 
 Inspect a Windows installer and pull out the deployment data needed to
-package it for Configuration Manager, Intune, or Chocolatey — in one pass, with no admin
+package it for Configuration Manager, Intune, or Chocolatey - in one pass, with no admin
 rights, no network, and no Configuration Manager connection.
 
 ![Installer Analysis](screenshots/screenshot.png)
@@ -33,7 +33,7 @@ offline against installers the user already possesses.
 
 Every extractor in this repository maps to a publicly documented
 precedent on GitHub, usually owned by the format's vendor (Microsoft,
-WiX Toolset, NuGet team, etc.) — see [SOURCES.md](SOURCES.md) for the
+WiX Toolset, NuGet team, etc.) - see [SOURCES.md](SOURCES.md) for the
 per-function precedent map.
 
 ## Installer formats detected
@@ -54,22 +54,22 @@ guessing.
 
 Every analysis surfaces:
 
-- **Source facts** — type, architecture, size, SHA-256, Authenticode
+- **Source facts** - type, architecture, size, SHA-256, Authenticode
   signature with signer subject.
-- **Deployment fields** — DisplayName, DisplayVersion, Vendor, silent
+- **Deployment fields** - DisplayName, DisplayVersion, Vendor, silent
   install / uninstall command lines, predicted `UninstallRegistryKey`
   (the ARP key the installer writes to, with WOW6432Node routing for
   32-bit MSIs on x64 and HKCU routing for per-user installs).
-- **MSI properties** — for MSI files or EXE wrappers with an embedded
+- **MSI properties** - for MSI files or EXE wrappers with an embedded
   MSI: ProductCode, UpgradeCode, ProductVersion, Manufacturer, plus the
   full Property table.
-- **Package metadata** — format-specific block per detected type
+- **Package metadata** - format-specific block per detected type
   (nuspec for `.nupkg`, AppxManifest for MSIX, MsiPatchMetadata for MSP,
   `.wixburn` PE section for WiX Burn, etc.). `.intunewin` AES key
   material (EncryptionKey, MacKey, IV, Mac) is redacted by default;
   pass `-IncludeIntunewinKeyMaterial` to `Get-IntunewinMetadata` if you
   need the raw values.
-- **NSIS compiled script** — the header block appended to every NSIS
+- **NSIS compiled script** - the header block appended to every NSIS
   installer is decompressed (LZMA, zlib, uncompressed; bzip2 reported as
   not decoded) and read directly: `InstallDir`, the `WriteUninstaller`
   path, every Add/Remove Programs value the script writes, the hive
@@ -85,7 +85,7 @@ Every analysis surfaces:
   switch, the folder, the uninstall command, the ARP key and hive, and
   the install context, so a per-machine deployment never mixes values
   from the per-user branch.
-- **Inno Setup compiled `[Setup]` header** — the setup-0 block behind
+- **Inno Setup compiled `[Setup]` header** - the setup-0 block behind
   the SetupLdr stub is located through the loader offset table,
   decompressed (LZMA1) and read for every data version from 5.x to
   7.0.0.3: `AppId` (so the Add/Remove Programs key is the real
@@ -105,18 +105,18 @@ Every analysis surfaces:
   `PrivilegesRequiredOverridesAllowed` includes the command line, the
   `/ALLUSERS` and `/CURRENTUSER` branches are both reported as install
   modes with their own folder, key, hive and uninstall command.
-- **Velopack setup packages** — read the embedded nuspec for the package
+- **Velopack setup packages** - read the embedded nuspec for the package
   ID, title, full package version and application architecture. Report
   `--silent` (alias `-s`), the default per-user install folder, the
   `Update.exe --uninstall --silent` command and the HKCU uninstall key.
   The ARP DisplayVersion uses `major.minor.patch`; the full version,
   including prerelease/build labels, remains in package metadata.
   Metadata reads do not require 7-Zip or extraction.
-- **Effective post-patch detection target** — for outer files that
+- **Effective post-patch detection target** - for outer files that
   contain a base MSI plus a cumulative MSP (Adobe Reader, Office, most
   enterprise vendors), the analyzer combines the inner MSI's ProductCode
   with the MSP's `MsiPatchMetadata.DisplayName` to render the ARP key
-  and DisplayVersion the patched product will actually write — so
+  and DisplayVersion the patched product will actually write - so
   detection methods can be authored without installing the product.
 
 ## Inner Installers
@@ -125,7 +125,7 @@ A dedicated tab classifies the installer-class entries inside the
 current file's payload (inner MSIs / MSPs / sub-EXEs / `.nupkg` / Media-
 table CABs). Pick a row and click **Analyze Selected** to drill into it:
 the analyzer extracts the entry to a sandboxed temp folder, re-runs the
-full pipeline on it, and surfaces a breadcrumb bar with `← Back` plus
+full pipeline on it, and surfaces a breadcrumb bar with `<- Back` plus
 clickable ancestor segments. **Open in New Window** spawns a sibling
 analyzer process so you can compare the outer and inner side-by-side.
 Drill depth caps at 5. Temp folder is wiped on shell close.
@@ -140,13 +140,13 @@ adds Copy Path, Open Enclosing Folder, and Re-Analyze.
 
 ## Export
 
-- **Copy Summary** — clipboard, plain text, paste-ready for a ticket
+- **Copy Summary** - clipboard, plain text, paste-ready for a ticket
   or change record.
-- **Copy JSON** — clipboard, ConfigMgr-ready JSON digest with detection
+- **Copy JSON** - clipboard, ConfigMgr-ready JSON digest with detection
   hints keyed to installer type.
-- **Export CSV** / **Export HTML** — file output of the full analysis
+- **Export CSV** / **Export HTML** - file output of the full analysis
   table.
-- **Extract Payload** — full 7-Zip extraction of the installer
+- **Extract Payload** - full 7-Zip extraction of the installer
   contents to a folder of your choice.
 
 ## Requirements
