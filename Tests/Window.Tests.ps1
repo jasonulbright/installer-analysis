@@ -179,6 +179,20 @@ Describe 'Contrast <Theme>' -ForEach @(@{ Theme = 'dark' }, @{ Theme = 'light' }
         $tb.Active | Should -BeGreaterOrEqual 4.5
     }
 
+    It 'shows every disabled control clearly dimmed: enabled text over disabled text is at least 1.25 and the disabled text stays at 1.5 or more' {
+        # A disabled control is exempt from the 4.5:1 rule (WCAG 1.4.3), but it must read as disabled and stay readable.
+        $bad = @()
+        foreach ($v in @($script:Measured['{0}|1440x900' -f $Theme])) {
+            foreach ($c in @($v.Interactive)) {
+                if ($null -eq $c.EnabledText -or $null -eq $c.DisabledText) { continue }
+                $ratio = if ($c.DisabledText -gt 0) { $c.EnabledText / $c.DisabledText } else { [double]::PositiveInfinity }
+                if ($ratio -lt 1.25 -or $c.DisabledText -lt 1.5) { $bad += ('{0}: enabled {1}, disabled {2}, step {3}' -f $c.Name, $c.EnabledText, $c.DisabledText, [math]::Round($ratio, 2)) }
+            }
+        }
+        $bad = @($bad | Sort-Object -Unique)
+        $bad | Should -BeNullOrEmpty -Because ('a disabled control must look dimmed and stay readable: ' + ($bad -join '; '))
+    }
+
     It 'meets the standard on every control, except the listed known defects' {
         $known = Get-KnownContrastDefect -Theme $Theme
         $found = @(Get-ContrastViolationKey -Views @($script:Measured['{0}|1440x900' -f $Theme]))

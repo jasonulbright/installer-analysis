@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Treat disabled controls as exempt from 4.5:1 text contrast and require them to look dimmed.
+- Dim disabled text boxes and sidebar buttons so they read as disabled.
+
 ## [2026.11.15.0028] - 2026-11-15
 
 ## 18 images retaken with blue pressed buttons and the new title bar

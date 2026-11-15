@@ -391,9 +391,10 @@ function Get-UiExceptionText {
     }
 }
 
-# Returns one text per Opacity setter or Opacity attribute in a Button style or a Button template. A hover, pressed or
-# disabled state that fades the button with Opacity lowers the text contrast below the limit. The states use the theme
-# foreground and the theme background instead.
+# Returns one text per Opacity setter or Opacity attribute in a Button style or a Button template. A hover or pressed
+# state that fades the button with Opacity lowers the text contrast below the limit. The states use the theme foreground
+# and the theme background instead. One exception: the disabled state (a Trigger on IsEnabled False) may dim the button
+# with Opacity, because WCAG 1.4.3 exempts inactive components and a disabled button must look dimmed.
 function Get-ButtonOpacityViolation {
     param([string]$Text, [string]$Source)
     [xml]$xml = $Text
@@ -403,7 +404,8 @@ function Get-ButtonOpacityViolation {
         $strKey = $objScope.GetAttribute('Key', $script:strXamlNamespace)
         foreach ($objNode in @($objScope.SelectNodes('descendant-or-self::*'))) {
             if ($objNode.LocalName -eq 'Setter') {
-                if ((Get-PropertyLeaf $objNode.GetAttribute('Property')) -eq 'Opacity') { [void]$listFound.Add(('{0}: {1} {2} sets Opacity' -f $Source, $objScope.LocalName, $strKey)) }
+                $boolDisabled = ($objNode.ParentNode.LocalName -eq 'Trigger' -and $objNode.ParentNode.GetAttribute('Property') -eq 'IsEnabled' -and $objNode.ParentNode.GetAttribute('Value') -eq 'False')
+                if (-not $boolDisabled -and (Get-PropertyLeaf $objNode.GetAttribute('Property')) -eq 'Opacity') { [void]$listFound.Add(('{0}: {1} {2} sets Opacity' -f $Source, $objScope.LocalName, $strKey)) }
             }
             elseif ($objNode.HasAttribute('Opacity')) { [void]$listFound.Add(('{0}: {1} {2} has an Opacity attribute on <{3}>' -f $Source, $objScope.LocalName, $strKey, $objNode.LocalName)) }
         }

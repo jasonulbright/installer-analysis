@@ -475,17 +475,17 @@ Describe 'Every button takes the shared themed style (d)' {
         @(Get-ButtonThemeViolation -Text "<Grid $script:strNamespace><Grid.Resources>$script:strThemedStyle$strSetter</Grid.Resources><Button Style=`"{StaticResource S}`"/></Grid>" -Source 's').Count | Should -Be 1
     }
 
-    It 'uses no Opacity in a button style or a button template of <_.Source>' -ForEach $script:arrOwnXamlDocD {
+    It 'uses Opacity in a button style or a button template only for the disabled state of <_.Source>' -ForEach $script:arrOwnXamlDocD {
         @(Get-ButtonOpacityViolation -Text $_.Text -Source $_.Source) | Should -BeNullOrEmpty
     }
 
-    It 'flags an Opacity setter in a button trigger and an Opacity attribute in a button template' {
+    It 'flags an Opacity setter in a hover trigger and an Opacity attribute in a button template, and accepts it in the disabled trigger' {
         $strTrigger = '<ControlTemplate TargetType="Button"><Border Name="Bd"/><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Opacity" Value="0.8"/></Trigger></ControlTemplate.Triggers></ControlTemplate>'
         @(Get-ButtonOpacityViolation -Text "<Grid $script:strNamespace><Grid.Resources>$strTrigger</Grid.Resources></Grid>" -Source 's').Count | Should -Be 1
         $strAttribute = '<ControlTemplate TargetType="Button"><Border Name="Bd" Opacity="0.5"/></ControlTemplate>'
         @(Get-ButtonOpacityViolation -Text "<Grid $script:strNamespace><Grid.Resources>$strAttribute</Grid.Resources></Grid>" -Source 's').Count | Should -Be 1
         $strStyle = '<Style x:Key="S" TargetType="Button"><Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger></Style.Triggers></Style>'
-        @(Get-ButtonOpacityViolation -Text "<Grid $script:strNamespace><Grid.Resources>$strStyle</Grid.Resources></Grid>" -Source 's').Count | Should -Be 1
+        @(Get-ButtonOpacityViolation -Text "<Grid $script:strNamespace><Grid.Resources>$strStyle</Grid.Resources></Grid>" -Source 's').Count | Should -Be 0
         $strOk = '<Style x:Key="S" TargetType="Button"><Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/></Style><Style TargetType="Border"><Setter Property="Opacity" Value="0.5"/></Style>'
         @(Get-ButtonOpacityViolation -Text "<Grid $script:strNamespace><Grid.Resources>$strOk</Grid.Resources></Grid>" -Source 's').Count | Should -Be 0
     }

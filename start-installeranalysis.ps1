@@ -1639,6 +1639,7 @@ function Show-InstallerAnalysisOptions {
                     <Trigger Property="IsEnabled" Value="False">
                         <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.Gray.MouseOver}"/>
                         <Setter Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.Gray2}"/>
+                        <Setter Property="Opacity" Value="0.5"/>
                     </Trigger>
                 </Style.Triggers>
             </Style>

@@ -15,11 +15,9 @@ function Get-KnownContrastDefect {
             # The sidebar buttons of the light theme come from the SuiteCommon palette (white-on-blue text passes; the
             # border #006CBE on #0078D4 does not). The fix belongs in app-packager-suite.
             @(
-                'btnViewEmbedded:DisabledBorder', 'btnViewEmbedded:EnabledBorder', 'btnViewFiles:DisabledBorder',
-                'btnViewFiles:EnabledBorder', 'btnViewMsi:DisabledBorder', 'btnViewMsi:EnabledBorder',
-                'btnViewOverview:DisabledBorder', 'btnViewOverview:EnabledBorder', 'btnViewPayload:DisabledBorder',
-                'btnViewPayload:EnabledBorder', 'btnViewRegistry:DisabledBorder', 'btnViewRegistry:EnabledBorder',
-                'btnViewStrings:DisabledBorder', 'btnViewStrings:EnabledBorder'
+                'btnViewEmbedded:EnabledBorder', 'btnViewFiles:EnabledBorder', 'btnViewMsi:EnabledBorder',
+                'btnViewOverview:EnabledBorder', 'btnViewPayload:EnabledBorder', 'btnViewRegistry:EnabledBorder',
+                'btnViewStrings:EnabledBorder'
             )
         }
     }
@@ -43,7 +41,9 @@ function Get-ContrastViolationKey {
             if ($r.Ratio -lt $min) { [void]$keys.Add(('text:{0}' -f $r.Text)) }
         }
         foreach ($c in $v.Interactive) {
-            foreach ($metric in 'EnabledText', 'DisabledText', 'EnabledBorder', 'DisabledBorder') {
+            # A disabled (inactive) control is exempt from the text and border contrast rules (WCAG 1.4.3 and 1.4.11 exempt
+            # inactive components). Window.Tests.ps1 requires instead that a disabled control looks clearly dimmed.
+            foreach ($metric in 'EnabledText', 'EnabledBorder') {
                 $value = $c.$metric
                 if ($null -eq $value) { continue }
                 $min = if ($metric -like '*Text') { 4.5 } else { 3.0 }
