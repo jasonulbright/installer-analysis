@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [2026.11.15.0028] - 2026-11-15
+
+## 18 images retaken with blue pressed buttons and the new title bar
+
 ### Added
 
 - Map the README images to the capture, with a sync script and a guard test.
