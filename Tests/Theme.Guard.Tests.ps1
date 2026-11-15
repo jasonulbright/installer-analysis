@@ -497,7 +497,7 @@ Describe 'Every button takes the shared themed style (d)' {
     It 'flags a button template without the hover, focus or pressed rule' {
         $strHover = '<Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/></Trigger>'
         $strFocus = '<Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/></Trigger>'
-        $strPressed = '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/><Setter TargetName="Cp" Property="TextElement.Foreground" Value="{DynamicResource MahApps.Brushes.ThemeBackground}"/></Trigger>'
+        $strPressed = '<Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource SuiteAccentPressed}"/><Setter TargetName="Cp" Property="TextElement.Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/></Trigger>'
         $strOpen = "<Grid $script:strNamespace><Grid.Resources><ControlTemplate x:Key=`"ThemedButtonTemplate`" TargetType=`"Button`"><Border Name=`"Bd`"/><ControlTemplate.Triggers>"
         $strClose = '</ControlTemplate.Triggers></ControlTemplate></Grid.Resources></Grid>'
         @(Get-ButtonStateViolation -Text ($strOpen + $strHover + $strFocus + $strPressed + $strClose) -Source 's').Count | Should -Be 0

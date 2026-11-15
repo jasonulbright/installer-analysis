@@ -19,8 +19,9 @@ try {
         $r = Invoke-WpfSta -Arguments @{ Dark = $dark; Config = $script:AppConfig } -Script {
             $cfg = $Arguments.Config
             $w = Open-TestWindow -XamlPath (Join-Path $Root $cfg.Xaml) -Dark $Arguments.Dark -PopulateScript $cfg.PopulateScript
-            $out = Measure-WindowViews -Window $w -Config $cfg -Dark $Arguments.Dark -Full $true
-            $w.Close(); , $out
+            try { $out = Measure-WindowViews -Window $w -Config $cfg -Dark $Arguments.Dark -Full $true }
+            finally { $w.Close() }
+            , $out
         }
         $keys = Get-ContrastViolationKey -Views @($r)
         Write-Host ("== {0}" -f $(if ($dark) { 'dark' } else { 'light' }))

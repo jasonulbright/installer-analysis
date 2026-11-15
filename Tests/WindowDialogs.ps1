@@ -90,6 +90,9 @@ function Measure-AppDialog {
             return [pscustomobject]@{ Name = $Name; States = @(Get-SuiteButtonStateReport -Window $d -Dark $Dark -Max $Max) }
         }
         $c = Get-SuiteWindowChrome -Window $d -Label $Name
+        $body = Get-SuiteWindowBody -Window $d -Label $Name
+        # The owner behind the open dialog: its title bar is the inactive one.
+        $ownerChrome = $(if ($Owner) { Get-SuiteWindowChrome -Window $Owner -Label ('main behind ' + $Name) })
         $buttons = New-Object System.Collections.Generic.List[object]
         foreach ($b in @($c.Buttons)) { $buttons.Add($b) }
         # The Options window shows one panel at a time. Walk every panel so that its buttons are measured too.
@@ -105,7 +108,7 @@ function Measure-AppDialog {
                 }
             }
         }
-        return [pscustomobject]@{ Name = $Name; Title = $c.Title; Active = $c.Active; Inactive = $c.Inactive; TitleRatio = $c.TitleRatio; Buttons = $buttons.ToArray() }
+        return [pscustomobject]@{ Name = $Name; Title = $c.Title; Active = $c.Active; Inactive = $c.Inactive; TitleRatio = $c.TitleRatio; Body = $body; OwnerChrome = $ownerChrome; Buttons = $buttons.ToArray() }
     }
     finally { $d.Close() }
 }

@@ -66,8 +66,8 @@ BeforeAll {
             $w = Open-TestWindow -XamlPath (Join-Path $Root $cfg.Xaml) -Dark $Arguments.Dark -Width $Arguments.W -Height $Arguments.H -PopulateScript $cfg.PopulateScript
             # Contrast is read only at 1440x900. Clipped text and off-screen controls are read at both sizes.
             $full = $Arguments.W -ge 1440
-            $out = Measure-WindowViews -Window $w -Config $cfg -Dark $Arguments.Dark -Full $full
-            $w.Close()
+            try { $out = Measure-WindowViews -Window $w -Config $cfg -Dark $Arguments.Dark -Full $full }
+            finally { $w.Close() }
             , $out
         }
     }
@@ -79,8 +79,9 @@ Describe 'Main window XAML' -Skip:(-not $script:WindowGuard.Allowed) {
     It 'loads as a MetroWindow with the app title and a minimum size that fits 1024x720' {
         $r = Invoke-WpfSta -Arguments @{ Xaml = $script:AppConfig.Xaml } -Script {
             $w = Open-TestWindow -XamlPath (Join-Path $Root $Arguments.Xaml)
-            $o = [PSCustomObject]@{ Type = $w.GetType().FullName; Title = $w.Title; MinW = $w.MinWidth; MinH = $w.MinHeight }
-            $w.Close(); $o
+            try { $o = [PSCustomObject]@{ Type = $w.GetType().FullName; Title = $w.Title; MinW = $w.MinWidth; MinH = $w.MinHeight } }
+            finally { $w.Close() }
+            $o
         }
         $r.Type | Should -Be 'MahApps.Metro.Controls.MetroWindow'
         $r.Title | Should -Be $script:AppConfig.Title
@@ -112,8 +113,9 @@ Describe 'Main window XAML' -Skip:(-not $script:WindowGuard.Allowed) {
     It 'shows the first view and keeps the others hidden' {
         $r = Invoke-WpfSta -Arguments @{ Config = $script:AppConfig } -Script {
             $w = Open-TestWindow -XamlPath (Join-Path $Root $Arguments.Config.Xaml)
-            $o = foreach ($v in $Arguments.Config.Views) { [PSCustomObject]@{ Name = $v.Name; Vis = [string]$w.FindName($v.Container).Visibility } }
-            $w.Close(); , @($o)
+            try { $o = foreach ($v in $Arguments.Config.Views) { [PSCustomObject]@{ Name = $v.Name; Vis = [string]$w.FindName($v.Container).Visibility } } }
+            finally { $w.Close() }
+            , @($o)
         }
         $first = $script:AppConfig.Views[0].Name
         ($r | Where-Object Name -eq $first).Vis | Should -Be 'Visible'
@@ -182,7 +184,7 @@ Describe 'Contrast <Theme>' -ForEach @(@{ Theme = 'dark' }, @{ Theme = 'light' }
         $found = @(Get-ContrastViolationKey -Views @($script:Measured['{0}|1440x900' -f $Theme]))
         $new = @($found | Where-Object { $known -notcontains $_ })
         $fixed = @($known | Where-Object { $found -notcontains $_ })
-        $new | Should -BeNullOrEmpty -Because 'a new contrast violation appeared'
-        $fixed | Should -BeNullOrEmpty -Because 'a known defect is fixed: remove it from Get-KnownContrastDefect'
+        $new | Should -BeNullOrEmpty -Because ('a new contrast violation appeared: ' + ($new -join ', '))
+        $fixed | Should -BeNullOrEmpty -Because ('a known defect is fixed, remove it from Get-KnownContrastDefect: ' + ($fixed -join ', '))
     }
 }

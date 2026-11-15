@@ -37,9 +37,10 @@ BeforeAll {
             $main = Open-MainWindowForTest -Config $Arguments.Config -Dark $Arguments.Dark
             try {
                 $mainChrome = Get-SuiteWindowChrome -Window $main -Label 'main'
+                $mainBody = Get-SuiteWindowBody -Window $main -Label 'main'
                 $dialogs = @(foreach ($dlg in $Arguments.Dialogs) { Measure-AppDialog -Name $dlg.Name -Owner $main -CallScript $dlg.Call -Mode Chrome -Dark $Arguments.Dark })
                 [pscustomobject]@{
-                    ThemeText = $mainChrome.ThemeText
+                    ThemeText = $mainChrome.ThemeText; MainChrome = $mainChrome; MainBody = $mainBody
                     MainTitle = $mainChrome.Active; MainTitleInactive = $mainChrome.Inactive
                     Main      = @($mainChrome.Buttons); Dialogs = $dialogs
                 }
@@ -95,5 +96,62 @@ Describe 'Chrome <Theme>' -ForEach $script:ThemeCases -Skip:(-not $script:Window
         $bad = @($all | Where-Object { $_.BorderThickness -gt 1 -or ($_.BorderThickness -gt 0 -and $_.BorderColor -eq $script:M.ThemeText) } |
                 ForEach-Object { '{0} "{1}" border {2}px {3}' -f $_.Window, $_.Text, $_.BorderThickness, $_.BorderColor })
         $bad | Should -BeNullOrEmpty
+    }
+    It 'lists the body colors of the main window and of every dialog' {
+        Write-Host ('{0} main: surface {1} text {2}' -f $Theme, $script:M.MainBody.BackLuminance, $script:M.MainBody.TextRatio)
+        foreach ($d in $script:M.Dialogs) {
+            Write-Host ('{0} {1}: surface {2} text {3}; inputs: {4}' -f $Theme, $d.Name, $d.Body.BackLuminance, $d.Body.TextRatio, ((@($d.Body.Inputs) | ForEach-Object { '{0} {1} lum {2} text {3} border {4}' -f $_.Kind, $_.Name, $_.BackLuminance, $_.TextRatio, $_.BorderRatio }) -join ' | '))
+        }
+        @($script:M.Dialogs).Count | Should -BeGreaterThan 0
+    }
+
+    It 'gives the body of every dialog the surface of the theme (light in light, dark in dark)' {
+        $light = ($Theme -eq 'light')
+        $bad = @($script:M.Dialogs | Where-Object { $null -ne $_.Body.BackLuminance -and ((($light -and $_.Body.BackLuminance -lt 0.5) -or (-not $light -and $_.Body.BackLuminance -gt 0.25))) } |
+                ForEach-Object { '{0}: surface luminance {1} in the {2} theme' -f $_.Name, $_.Body.BackLuminance, $Theme })
+        $bad | Should -BeNullOrEmpty
+    }
+
+    It 'gives the body of every dialog the same surface as the main window' {
+        $bad = @($script:M.Dialogs | Where-Object { $null -ne $_.Body.BackLuminance -and $null -ne $script:M.MainBody.BackLuminance -and [math]::Abs($_.Body.BackLuminance - $script:M.MainBody.BackLuminance) -gt 0.1 } |
+                ForEach-Object { '{0}: surface {1}, main {2}' -f $_.Name, $_.Body.BackLuminance, $script:M.MainBody.BackLuminance })
+        $bad | Should -BeNullOrEmpty
+    }
+
+    It 'keeps 4.5:1 for the text of every dialog body and every input' {
+        $bad = @()
+        foreach ($d in $script:M.Dialogs) {
+            if ($null -ne $d.Body.TextRatio -and $d.Body.TextRatio -lt 4.5) { $bad += ('{0}: window text {1}' -f $d.Name, $d.Body.TextRatio) }
+            foreach ($i in @($d.Body.Inputs)) { if ($null -ne $i.TextRatio -and $i.TextRatio -lt 4.5) { $bad += ('{0}: {1} {2} text {3}' -f $d.Name, $i.Kind, $i.Name, $i.TextRatio) } }
+        }
+        $bad | Should -BeNullOrEmpty
+    }
+
+    It 'gives every input of every dialog the surface side of the theme' {
+        $light = ($Theme -eq 'light')
+        $bad = @()
+        foreach ($d in $script:M.Dialogs) { foreach ($i in @($d.Body.Inputs)) { if ($null -ne $i.BackLuminance -and ((($light -and $i.BackLuminance -lt 0.4) -or (-not $light -and $i.BackLuminance -gt 0.3)))) { $bad += ('{0}: {1} {2} luminance {3}' -f $d.Name, $i.Kind, $i.Name, $i.BackLuminance) } } }
+        $bad | Should -BeNullOrEmpty
+    }
+
+    It 'keeps the caption of the main window readable (4.5:1) on the bar of its state, active and behind a dialog' {
+        $script:M.MainChrome.TitleRatio | Should -BeGreaterOrEqual 4.5
+        $behind = @($script:M.Dialogs | ForEach-Object { $_.OwnerChrome })
+        $behind.Count | Should -BeGreaterThan 0
+        foreach ($b in $behind) {
+            $b.IsActive | Should -BeFalse -Because 'the dialog took the focus'
+            $b.TitleRatio | Should -BeGreaterOrEqual 4.5
+        }
+    }
+
+    It 'gives the inactive light title bar blue with dark caption text, and the dark one white text' {
+        foreach ($b in @($script:M.Dialogs | ForEach-Object { $_.OwnerChrome })) {
+            if ($Theme -eq 'light') {
+                $b.TitleBrushNow | Should -Be '#FF4BA3E0'
+                $b.TitleText | Should -Be '#FF333333'
+            }
+            else { $b.TitleText | Should -Not -Be '#FF333333' }
+        }
+        $script:M.MainChrome.TitleText | Should -Not -Be '#FF333333' -Because 'the active caption is white'
     }
 }
