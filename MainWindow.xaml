@@ -72,6 +72,16 @@
                     <Trigger Property="IsEnabled" Value="False">
                         <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.Gray.MouseOver}"/>
                         <Setter Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.Gray2}"/>
+                        <Setter Property="Opacity" Value="0.5"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- A disabled text box is dimmed, so that it reads as disabled. -->
+            <Style TargetType="TextBox" BasedOn="{StaticResource MahApps.Styles.TextBox}">
+                <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Opacity" Value="0.5"/>
                     </Trigger>
                 </Style.Triggers>
             </Style>
