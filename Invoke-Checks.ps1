@@ -18,7 +18,7 @@
     Minimum percent of module commands that the tests run. Default 80.
 
 .PARAMETER SkipWindow
-    Leave out Tests\Window.Tests.ps1, which opens windows and needs a desktop. It is also left out,
+    Leave out the window test files (Window, Chrome.Window and ButtonStates.Window), which open windows and need a desktop. It is also left out,
     with one line of explanation, whenever SUITE_ALLOW_WINDOW_TESTS is not 1.
     CI sets it to 1. Tests\WindowGuard.Tests.ps1 holds the rule.
 
@@ -88,7 +88,7 @@ if ($testFiles.Count -eq 0) { Write-Host 'No test file found.'; exit 1 }
 # Window tests open windows. They run only where the guard allows it (see Tests\WindowHarness.ps1).
 . (Join-Path $root 'Tests\WindowHarness.ps1')
 $windowGuard = Test-WindowTestsAllowed
-$windowTestFiles = 'Window.Tests.ps1'
+$windowTestFiles = 'Window.Tests.ps1', 'Chrome.Window.Tests.ps1', 'ButtonStates.Window.Tests.ps1'
 $windowTestsRun = $windowGuard.Allowed -and -not $SkipWindow
 $windowSkipReported = $false
 if (-not $windowGuard.Allowed) {

@@ -5,10 +5,11 @@
 # object cannot cross to the Pester thread. The windows are shown off screen at
 # -32000 so layout, templates and triggers run for real.
 #
-# One STA runspace serves a whole test file. A runspace per call hangs: the
-# theme manager keeps handlers of closed windows from earlier threads, and the
-# next theme change waits on their dead dispatchers. Call Close-WpfSession in
-# AfterAll.
+# One STA runspace serves every window test file of a Pester run. A runspace per
+# call, or a new runspace after a closed one, hangs: the theme manager keeps
+# handlers of closed windows from earlier threads, and the next theme change
+# waits on their dead dispatchers. The session lives in $global:HarnessSession,
+# so all test files share it. Close-WpfSession does nothing unless -Force.
 
 # Window tests open a window only when SUITE_ALLOW_WINDOW_TESTS is 1.
 # Every window test file calls this in BeforeDiscovery and skips its Describe blocks when Allowed is false.
@@ -24,7 +25,7 @@ function Test-WindowTestsAllowed {
 $script:HarnessRoot = Split-Path -Parent $PSScriptRoot
 . "$PSScriptRoot\WindowMeasure.ps1"
 
-$script:HarnessSession = $null
+if (-not (Test-Path variable:global:HarnessSession)) { $global:HarnessSession = $null }
 
 # Script text that every STA runspace starts with: assemblies, SuiteCommon, and
 # helper functions to open a themed window and measure it.
@@ -116,7 +117,7 @@ function Get-WpfSession {
     # No code path creates a runspace where the guard says no.
     $guard = Test-WindowTestsAllowed
     if (-not $guard.Allowed) { throw ('Window tests are not allowed here: {0}.' -f $guard.Reason) }
-    if ($script:HarnessSession -and $script:HarnessSession.RunspaceStateInfo.State -eq 'Opened') { return $script:HarnessSession }
+    if ($global:HarnessSession -and $global:HarnessSession.RunspaceStateInfo.State -eq 'Opened') { return $global:HarnessSession }
     $rs = [runspacefactory]::CreateRunspace()
     $rs.ApartmentState = 'STA'
     $rs.ThreadOptions = 'ReuseThread'
@@ -136,12 +137,14 @@ function Get-WpfSession {
         throw
     }
     $ps.Dispose()
-    $script:HarnessSession = $rs
+    $global:HarnessSession = $rs
     return $rs
 }
 
+# The session is shared by every window test file of one Pester run, so a plain call keeps it open. -Force closes it.
 function Close-WpfSession {
-    if ($script:HarnessSession) { $script:HarnessSession.Dispose(); $script:HarnessSession = $null }
+    param([switch]$Force)
+    if ($Force -and $global:HarnessSession) { $global:HarnessSession.Dispose(); $global:HarnessSession = $null }
 }
 
 function Invoke-WpfSta {

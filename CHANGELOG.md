@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Add the button state window test: hover, focus and pressed of sample buttons of the main window and the Options window in both themes (4.5:1 text, 3:1 edge). It runs only in a visible run.
+- Add the dialog chrome window test: every dialog gets the main window title bar brush, readable title text, bold buttons and a 1 px border at most.
+
+### Changed
+
+- Share one STA session across the window test files of a run.
+- Refresh the vendored SuiteCommon with the shared window test helpers.
+
 ## [2026.11.14.0026] - 2026-11-14
 
 ## 1 px gray border on every button in both themes

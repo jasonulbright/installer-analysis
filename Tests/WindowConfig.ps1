@@ -20,6 +20,12 @@ $script:AppConfig = @{
         @{ Name = 'Registry Settings'; Container = 'panelRegistry'; Button = 'btnViewRegistry' }
         @{ Name = 'Strings';           Container = 'panelStrings';  Button = 'btnViewStrings' }
     )
+    # How each dialog function of the app is opened for a measurement (Tests\WindowDialogs.ps1). Script text that runs
+    # inside the STA runspace with $Owner set to the main window. The key is the name of the dialog function.
+    DialogCalls    = @{
+        'Show-InstallerAnalysisOptions' = 'Show-InstallerAnalysisOptionsForTest -Owner $Owner'
+        'Show-ThemedMessage'            = "Show-ThemedMessageForTest -Owner `$Owner -Title 'Target Folder Is Not Empty' -Message 'The folder already contains 3 items. Extracting may overwrite files with the same names. Continue?' -Buttons 'YesNo' -Icon 'Warn'"
+    }
     # Script text (not a script block): it runs inside the STA runspace.
     PopulateScript = @'
 param($w)
