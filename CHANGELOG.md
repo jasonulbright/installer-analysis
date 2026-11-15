@@ -11,6 +11,7 @@
 
 - Share one STA session across the window test files of a run.
 - Refresh the vendored SuiteCommon with the shared window test helpers.
+- Sync SuiteCommon dialog button borders and retake the guide images and README screenshots.
 
 ## [2026.11.14.0026] - 2026-11-14
 
