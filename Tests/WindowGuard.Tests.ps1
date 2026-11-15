@@ -188,17 +188,32 @@ Describe 'Get-UnguardedDescribe reads the syntax tree' {
 Describe 'Get-WpfSession refuses where the guard says no' {
     BeforeAll {
         Mock Test-WindowTestsAllowed { [pscustomobject]@{ Allowed = $false; Reason = 'test' } }
+        # The session is global and shared by every window test file of the run: keep the real one and put it back.
+        $script:SavedSession = $global:HarnessSession
     }
-    AfterEach { $script:HarnessSession = $null }
+    AfterEach { $global:HarnessSession = $null }
+    AfterAll { $global:HarnessSession = $script:SavedSession }
 
     It 'throws and creates no session' {
-        $script:HarnessSession = $null
+        $global:HarnessSession = $null
         { Get-WpfSession } | Should -Throw '*not allowed*'
-        $script:HarnessSession | Should -BeNullOrEmpty
+        $global:HarnessSession | Should -BeNullOrEmpty
     }
 
     It 'does not hand out a cached session' {
-        $script:HarnessSession = [pscustomobject]@{ RunspaceStateInfo = [pscustomobject]@{ State = 'Opened' } }
+        $global:HarnessSession = [pscustomobject]@{ RunspaceStateInfo = [pscustomobject]@{ State = 'Opened' } }
         { Get-WpfSession } | Should -Throw '*not allowed*'
+    }
+
+    It 'keeps the session open on a plain Close-WpfSession and closes it only with -Force' {
+        $fake = [pscustomobject]@{ Disposed = $false }
+        $fake | Add-Member -MemberType ScriptMethod -Name Dispose -Value { $this.Disposed = $true }
+        $global:HarnessSession = $fake
+        Close-WpfSession
+        $global:HarnessSession | Should -Not -BeNullOrEmpty
+        $fake.Disposed | Should -BeFalse
+        Close-WpfSession -Force
+        $global:HarnessSession | Should -BeNullOrEmpty
+        $fake.Disposed | Should -BeTrue
     }
 }
