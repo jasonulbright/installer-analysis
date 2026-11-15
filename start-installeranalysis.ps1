@@ -1621,8 +1621,8 @@ function Show-InstallerAnalysisOptions {
                         <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
                     </Trigger>
                     <Trigger Property="IsPressed" Value="True">
-                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
-                        <Setter TargetName="Cp" Property="TextElement.Foreground" Value="{DynamicResource MahApps.Brushes.ThemeBackground}"/>
+                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SuiteAccentPressed}"/>
+                        <Setter TargetName="Cp" Property="TextElement.Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/>
                     </Trigger>
                 </ControlTemplate.Triggers>
             </ControlTemplate>
@@ -1646,6 +1646,7 @@ function Show-InstallerAnalysisOptions {
                  Open Logs Folder use it, at one size (MinWidth fits the longest label). The primary dialog style is DialogAccentButton. No other dialog
                  button style sets a Background. -->
             <Style x:Key="DialogButton" TargetType="Button" BasedOn="{StaticResource ThemedButtonStyle}">
+                <Setter Property="Template" Value="{DynamicResource SuiteNeutralButtonTemplate}"/>
                 <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Gray10}"/>
                 <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
                 <Setter Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.Gray2}"/>
@@ -1653,11 +1654,11 @@ function Show-InstallerAnalysisOptions {
                 <Setter Property="Height" Value="32"/>
                 <Setter Property="Margin" Value="0,0,8,0"/>
             </Style>
-            <!-- The accent fill is the theme highlight (#4A5763 dark, #00589F light): white text is 7:1 on both.
-                 The border is the theme foreground: the highlight alone is 2.1:1 on the dark dialog.
-                 The plain accent fill of the light theme is 4.49:1. -->
+            <!-- The accent fill is the theme accent (AccentBase): the shared accent template steps it one shade darker on hover and on press, white text stays at 4.5:1 or more.
+                 The border is the theme foreground: the fill alone is 2.1:1 on the dark dialog. -->
             <Style x:Key="DialogAccentButton" TargetType="Button" BasedOn="{StaticResource ThemedButtonStyle}">
-                <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.Highlight}"/>
+                <Setter Property="Template" Value="{DynamicResource SuiteAccentButtonTemplate}"/>
+                <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.AccentBase}"/>
                 <Setter Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.AccentBase}"/>
                 <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/>
                 <Setter Property="MinWidth" Value="140"/>

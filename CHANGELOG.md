@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Keep pressed accent and neutral buttons in their color, never black or white.
+- Sync SuiteCommon: light blue inactive title bar with dark caption text.
+
+### Added
+
+- Close stray windows after every window test call, with a guard test.
+- Check dialog bodies and the inactive title bar against the theme.
+- Measure button states of the main window and one dialog, blue and neutral.
+
 ## [2026.11.14.0027] - 2026-11-14
 
 ## 16 guide images retaken with 1 px gray button borders

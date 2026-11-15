@@ -217,3 +217,54 @@ Describe 'Get-WpfSession refuses where the guard says no' {
         $fake.Disposed | Should -BeTrue
     }
 }
+
+Describe 'Window cleanup' {
+    BeforeAll {
+        # The Open calls of a test file: Open-TestWindow, Open-MainWindowForTest and the Show method of a window.
+        function Get-OpenCall {
+            param($Ast)
+            $Ast.FindAll({
+                    param($n)
+                    ($n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -in 'Open-TestWindow', 'Open-MainWindowForTest') -or
+                    ($n -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and [string]$n.Member.Value -in 'Show', 'ShowDialog')
+                }, $true)
+        }
+        # True when the call is inside the body of a try that has a finally, or a later statement of the same block is such a try.
+        function Test-CloseInFinally {
+            param($Call)
+            for ($p = $Call.Parent; $p; $p = $p.Parent) {
+                if ($p -is [System.Management.Automation.Language.TryStatementAst] -and $p.Finally -and $p.Body.Extent.StartOffset -le $Call.Extent.StartOffset -and $p.Body.Extent.EndOffset -ge $Call.Extent.EndOffset) { return $true }
+                if ($p -is [System.Management.Automation.Language.StatementBlockAst] -or $p -is [System.Management.Automation.Language.NamedBlockAst]) {
+                    $later = @($p.Statements | Where-Object { $_.Extent.StartOffset -ge $Call.Extent.EndOffset -and $_ -is [System.Management.Automation.Language.TryStatementAst] -and $_.Finally -and $_.Finally.Extent.Text -match 'Close' })
+                    if ($later.Count -gt 0) { return $true }
+                }
+            }
+            return $false
+        }
+    }
+
+    It 'closes the windows of the STA runspace in the finally block of Invoke-WpfSta' {
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'WindowHarness.ps1'), [ref]$null, [ref]$null)
+        $fn = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-WpfSta' }, $true)
+        $fn | Should -Not -BeNullOrEmpty
+        $try = @($fn.FindAll({ param($n) $n -is [System.Management.Automation.Language.TryStatementAst] -and $n.Finally }, $true))
+        $try.Count | Should -BeGreaterThan 0
+        @($try | Where-Object { $_.Finally.Extent.Text -match 'Close-SuiteOpenWindow' }).Count | Should -BeGreaterThan 0
+    }
+
+    It '<Name> opens a window only where a finally block closes it' -ForEach $script:WindowTestFiles {
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$null, [ref]$null)
+        $bad = @(Get-OpenCall -Ast $ast | Where-Object { -not (Test-CloseInFinally -Call $_) } | ForEach-Object { 'line {0}: {1}' -f $_.Extent.StartLineNumber, $_.Extent.Text })
+        $bad | Should -BeNullOrEmpty
+    }
+
+    It 'finds an Open call that has no finally block' {
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput('$w = Open-TestWindow -XamlPath x; $w.Close()', [ref]$null, [ref]$null)
+        @(Get-OpenCall -Ast $ast | Where-Object { -not (Test-CloseInFinally -Call $_) }).Count | Should -Be 1
+    }
+
+    It 'accepts an Open call that a later try with finally closes' {
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput('$w = Open-TestWindow -XamlPath x; try { 1 } finally { $w.Close() }', [ref]$null, [ref]$null)
+        @(Get-OpenCall -Ast $ast | Where-Object { -not (Test-CloseInFinally -Call $_) }).Count | Should -Be 0
+    }
+}

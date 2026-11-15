@@ -423,7 +423,7 @@ function Test-TemplateTriggerSetter {
 }
 
 # Returns one text per rule of the button template that a document breaks: the hover and the keyboard focus show the theme
-# foreground as the border color, a pressed button swaps the theme foreground and the theme background.
+# foreground as the border color, a pressed button shows the pressed accent blue with white text (never black or white).
 function Get-ButtonStateViolation {
     param([string]$Text, [string]$Source)
     [xml]$xml = $Text
@@ -431,11 +431,12 @@ function Get-ButtonStateViolation {
     $objTemplate = $xml.SelectSingleNode("//*[local-name()='ControlTemplate'][@*[local-name()='Key']='ThemedButtonTemplate']")
     if (-not $objTemplate) { return @(('{0}: no ThemedButtonTemplate' -f $Source)) }
     $strForeground = '{DynamicResource MahApps.Brushes.ThemeForeground}'
-    $strBackground = '{DynamicResource MahApps.Brushes.ThemeBackground}'
+    $strPressedFill = '{DynamicResource SuiteAccentPressed}'
+    $strIdeal = '{DynamicResource MahApps.Brushes.IdealForeground}'
     if (-not (Test-TemplateTriggerSetter -Template $objTemplate -Trigger 'IsMouseOver' -Target 'Bd' -Property 'BorderBrush' -Value $strForeground)) { [void]$listFound.Add(('{0}: hover does not set the border to the theme foreground' -f $Source)) }
     if (-not (Test-TemplateTriggerSetter -Template $objTemplate -Trigger 'IsKeyboardFocused' -Target 'Bd' -Property 'BorderBrush' -Value $strForeground)) { [void]$listFound.Add(('{0}: keyboard focus does not set the border to the theme foreground' -f $Source)) }
-    if (-not (Test-TemplateTriggerSetter -Template $objTemplate -Trigger 'IsPressed' -Target 'Bd' -Property 'Background' -Value $strForeground)) { [void]$listFound.Add(('{0}: pressed does not set the background to the theme foreground' -f $Source)) }
-    if (-not (Test-TemplateTriggerSetter -Template $objTemplate -Trigger 'IsPressed' -Target 'Cp' -Property 'TextElement.Foreground' -Value $strBackground)) { [void]$listFound.Add(('{0}: pressed does not set the text to the theme background' -f $Source)) }
+    if (-not (Test-TemplateTriggerSetter -Template $objTemplate -Trigger 'IsPressed' -Target 'Bd' -Property 'Background' -Value $strPressedFill)) { [void]$listFound.Add(('{0}: pressed does not set the background to the pressed accent blue' -f $Source)) }
+    if (-not (Test-TemplateTriggerSetter -Template $objTemplate -Trigger 'IsPressed' -Target 'Cp' -Property 'TextElement.Foreground' -Value $strIdeal)) { [void]$listFound.Add(('{0}: pressed does not set the text to white' -f $Source)) }
     return $listFound.ToArray()
 }
 

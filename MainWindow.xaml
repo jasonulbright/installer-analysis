@@ -30,7 +30,7 @@
             <!-- The one button template and the one button style. Every Button of the window takes ThemedButtonStyle
                  or a style that is based on it. No color literal is allowed here: the colors come from the MahApps
                  theme resources, so the same markup works in the dark and the light theme. Hover shows the theme foreground as border color.
-                 Pressed swaps the theme foreground and the theme background. A disabled button shows MahApps.Brushes.Gray.MouseOver text (4.5:1 or more in both
+                 Pressed shows the pressed accent blue (SuiteAccentPressed of SuiteCommon) with white text, never black or white. A disabled button shows MahApps.Brushes.Gray.MouseOver text (4.5:1 or more in both
                  themes) and a Gray2 border, because the MahApps disabled state fades the text below 4.5:1. -->
             <ControlTemplate x:Key="ThemedButtonTemplate" TargetType="Button">
                 <Border Name="Bd"
@@ -53,8 +53,8 @@
                         <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
                     </Trigger>
                     <Trigger Property="IsPressed" Value="True">
-                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
-                        <Setter TargetName="Cp" Property="TextElement.Foreground" Value="{DynamicResource MahApps.Brushes.ThemeBackground}"/>
+                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SuiteAccentPressed}"/>
+                        <Setter TargetName="Cp" Property="TextElement.Foreground" Value="{DynamicResource MahApps.Brushes.IdealForeground}"/>
                     </Trigger>
                 </ControlTemplate.Triggers>
             </ControlTemplate>
