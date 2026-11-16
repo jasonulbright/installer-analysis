@@ -7,6 +7,7 @@
 - Compact layout for a 1080p work area: 36 px sidebar buttons, 26 px buttons, 24 px grid rows.
 - Open maximized on first start; the default size is the 1920x1032 work area.
 - Capture the guide images maximized; one run gives the verdict and the image list.
+- Retake all guide and README images at 1920x1032, maximized, in both themes.
 
 ### Added
 
