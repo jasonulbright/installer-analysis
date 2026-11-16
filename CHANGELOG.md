@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Compact layout for a 1080p work area: 36 px sidebar buttons, 26 px buttons, 24 px grid rows.
+- Open maximized on first start; the default size is the 1920x1032 work area.
+- Capture the guide images maximized; one run gives the verdict and the image list.
+
+### Added
+
+- Add density, vacant space and guide image tests for the 1080p layout.
+
 ## [2026.11.15.0029] - 2026-11-15
 
 ## 6 disabled text boxes now dim

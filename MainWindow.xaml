@@ -3,7 +3,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:Controls="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
     Title="Installer Analysis"
-    Width="1280" Height="780"
+    Width="1920" Height="1032"
     MinWidth="1024" MinHeight="640"
     WindowStartupLocation="CenterScreen"
     TitleCharacterCasing="Normal"
@@ -100,8 +100,8 @@
             <Style TargetType="TreeViewItem" BasedOn="{StaticResource ThemedTreeViewItemStyle}"/>
 
             <Style x:Key="ViewButtonStyle" TargetType="Button" BasedOn="{StaticResource ThemedButtonStyle}">
-                <Setter Property="Height" Value="42"/>
-                <Setter Property="Margin" Value="8,3,8,3"/>
+                <Setter Property="Height" Value="36"/>
+                <Setter Property="Margin" Value="8,2,8,2"/>
                 <Setter Property="Padding" Value="12,0,12,0"/>
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
                 <Setter Property="FontSize" Value="13"/>
@@ -111,7 +111,7 @@
             <Style x:Key="OptionsButtonStyle" TargetType="Button" BasedOn="{StaticResource ViewButtonStyle}"/>
 
             <Style x:Key="SquareInlineButtonStyle" TargetType="Button" BasedOn="{StaticResource ThemedButtonStyle}">
-                <Setter Property="Height" Value="28"/>
+                <Setter Property="Height" Value="26"/>
                 <Setter Property="MinWidth" Value="90"/>
                 <Setter Property="Margin" Value="0,0,8,0"/>
                 <Setter Property="FontSize" Value="12"/>
@@ -147,7 +147,8 @@
                 <Setter Property="GridLinesVisibility" Value="Horizontal"/>
                 <Setter Property="RowHeaderWidth" Value="0"/>
                 <Setter Property="BorderThickness" Value="0"/>
-                <Setter Property="ColumnHeaderHeight" Value="30"/>
+                <Setter Property="ColumnHeaderHeight" Value="26"/>
+                <Setter Property="RowHeight" Value="24"/>
                 <Setter Property="FontSize" Value="11"/>
                 <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.ThemeBackground}"/>
                 <Setter Property="Foreground" Value="{DynamicResource MahApps.Brushes.ThemeForeground}"/>
@@ -302,6 +303,7 @@
                          FontSize="12"
                          FontFamily="Cascadia Code, Consolas, Courier New"
                          Padding="6,4,6,4"
+                         Height="26"
                          Controls:TextBoxHelper.Watermark="C:\path\to\installer.exe or .msi or package  (press Enter to analyze)">
                     <TextBox.ContextMenu>
                         <ContextMenu x:Name="ctxPath">
@@ -466,6 +468,7 @@
                                  FontSize="12"
                                  Padding="6,4,6,4"
                                  MinWidth="180"
+                                 Height="26"
                                  Controls:TextBoxHelper.Watermark="Filter names in this folder..."/>
                     </DockPanel>
 
@@ -542,6 +545,7 @@
                         <TextBox x:Name="txtRegistryFilter"
                                  FontSize="12"
                                  Padding="6,4,6,4"
+                                 Height="26"
                                  Controls:TextBoxHelper.Watermark="Filter by key, name, value or component (case-insensitive)..."/>
                     </DockPanel>
                     <TextBlock x:Name="txtRegistryNote"
@@ -588,6 +592,7 @@
                              FontSize="12"
                              Padding="6,4,6,4"
                              Margin="0,0,0,4"
+                             Height="26"
                              Controls:TextBoxHelper.Watermark="Filter strings (case-insensitive)..."/>
                     <DataGrid x:Name="gridStrings"
                               Grid.Row="1"

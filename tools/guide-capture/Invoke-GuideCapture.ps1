@@ -214,6 +214,19 @@ try {
         $target = Join-Path (Join-Path $repo 'screenshots') $key
         if ($source -and (Test-Path $target)) { Copy-Item $source.FullName $target -Force }
     }
+    # One pass is the check run and the capture run (D-21): each shot logs a probe sample (size against the work area), and the
+    # guide image test reads the manifest of the images that this run produced.
+    $sampleCount = 0; $warnCount = 0; $errorCount = 0
+    foreach ($runLog in @(Get-ChildItem $tmp -Recurse -Filter run.log)) {
+        $lines = @(Get-Content $runLog.FullName)
+        $sampleCount += @($lines | Where-Object { $_ -match '\sSAMPLE\s' }).Count
+        $warnCount += @($lines | Where-Object { $_ -match '\sWARN\s' }).Count
+        $errorCount += @($lines | Where-Object { $_ -match '\sERROR in\s' }).Count
+    }
+    $producedNames = @($captured | ForEach-Object { $_.Name } | Sort-Object -Unique)
+    $manifest = [ordered]@{ Count = $producedNames.Count; Images = $producedNames } | ConvertTo-Json
+    [IO.File]::WriteAllText((Join-Path $here 'produced-images.json'), ($manifest -replace "`r?`n", "`r`n"), (New-Object System.Text.UTF8Encoding($false)))
+    Write-Output ('Capture verdict: {0}. Images produced {1}, probe samples {2}, warnings {3}, errors {4}.' -f $(if ($errorCount -eq 0) { 'PASS' } else { 'FAIL' }), $producedNames.Count, $sampleCount, $warnCount, $errorCount)
     $succeeded = $true
 }
 finally {

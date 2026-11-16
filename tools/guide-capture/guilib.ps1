@@ -46,6 +46,13 @@ function Size-Win($Win, [int]$W = 1440, [int]$H = 900) {
     $w2 = [Math]::Min($W, $sw.Width); $h2 = [Math]::Min($H, $sw.Height - 40)
     [void][NativeUi]::MoveWindow($hh, 0, 0, $w2, $h2, $true); Start-Sleep -Milliseconds 900
 }
+function Maximize-Win($Win) {
+    # The design size is the work area of a maximized window on a 1080p screen (D-20): the window fills it, nothing is hardcoded.
+    $Win.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).SetWindowVisualState([System.Windows.Automation.WindowVisualState]::Maximized)
+    Start-Sleep -Milliseconds 1500
+    $wa = [System.Windows.Forms.SystemInformation]::WorkingArea
+    Log ('work area {0}x{1}' -f $wa.Width, $wa.Height)
+}
 function Shot($Win, [string]$Name, [switch]$Hover) {
     if (-not $Hover) { [void][NativeUi]::SetCursorPos(1900, 1060); if ($Win.Current.ClassName -eq 'MetroWindow') { try { (Get-El $Win 'txtLog' -Quiet).SetFocus() } catch { $null = $_ } } }
     Start-Sleep -Milliseconds 1300
@@ -57,6 +64,8 @@ function Shot($Win, [string]$Name, [switch]$Hover) {
     $g.CopyFromScreen($x, $y, 0, 0, (New-Object System.Drawing.Size $w, $h)); $g.Dispose()
     $bmp.Save((Join-Path $OutDir ($Name + '.png')), [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
     Log ('shot {0} {1}x{2}' -f $Name, $w, $h)
+    # A probe sample of the window that the image shows: the size of the shot against the work area (D-21, one pass).
+    Log ('SAMPLE {0} {1}x{2} of work area {3}x{4}' -f $Name, $w, $h, [System.Windows.Forms.SystemInformation]::WorkingArea.Width, [System.Windows.Forms.SystemInformation]::WorkingArea.Height)
 }
 function Shot-Screen([string]$Name) {
     $s = [System.Windows.Forms.SystemInformation]::VirtualScreen

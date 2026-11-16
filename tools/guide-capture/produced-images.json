@@ -1,0 +1,21 @@
+{
+  "Count": 16,
+  "Images": [
+    "copy-json.png",
+    "copy-summary.png",
+    "exported-csv.png",
+    "light-msi.png",
+    "light-options.png",
+    "light-overview.png",
+    "options.png",
+    "overview-exe.png",
+    "overview-inno.png",
+    "overview-msi.png",
+    "start-first-run.png",
+    "start-reopen.png",
+    "view-msi.png",
+    "view-payload.png",
+    "view-registry.png",
+    "view-strings.png"
+  ]
+}

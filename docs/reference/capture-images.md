@@ -4,7 +4,7 @@ One command regenerates every image of this guide.
 
 ## What it does
 
-`tools\guide-capture\Invoke-GuideCapture.ps1` copies the tool to a lab computer, starts it in an interactive session of a lab account, walks every view, dialog and setting with Windows UI Automation, takes the screenshots at 1440 by 900 pixels, copies the PNG files back to `docs\images` and removes its files from the lab computer. It replaces only the images that exist already.
+`tools\guide-capture\Invoke-GuideCapture.ps1` copies the tool to a lab computer, starts it in an interactive session of a lab account, walks every view, dialog and setting with Windows UI Automation, maximizes the window on the 1920 by 1080 screen of the lab session (the work area is 1920 by 1032) and takes the screenshots there, copies the PNG files back to `docs\images` and removes its files from the lab computer. It replaces only the images that exist already.
 
 One capture runs at a time on a lab computer. The command takes the lock file `C:\guide\capture.lock` and waits while another capture holds it. A lock older than 60 minutes is stale. The command works in its own folder `C:\guide\installer-analysis`, removes its own files and the lock at the end, and never removes `C:\guide`.
 
@@ -27,7 +27,7 @@ Use it after a change that alters the window, and before a release.
    .\tools\guide-capture\Invoke-GuideCapture.ps1 -CredentialScript C:\lab\credentials.local.ps1 -Target CLIENT01 -LogonUser contoso\labadmin
    ```
 
-2. Wait for the command to end. It prints a warning for each step that failed.
+2. Wait for the command to end. It prints a warning for each step that failed and the verdict: `Capture verdict: PASS. Images produced N, probe samples M, warnings W, errors 0.` The same run is the check run (D-21): each shot logs a probe sample, and `tools\guide-capture\produced-images.json` lists the images that the run produced. The guide image test fails for a guide image that no run produced.
 3. Copy the guide images to the images of the README: `.\tools\guide-capture\Sync-ReadmeImages.ps1`. The file `tools\guide-capture\readme-images.json` maps each README image to the guide image of the same view.
 4. Open every changed image and check it. Look for clipped text, empty grids and stale version strings.
 5. Run the tests: `Invoke-Pester .\Tests\Documentation.Tests.ps1, .\Tests\Readme.Images.Guard.Tests.ps1`.
