@@ -8,7 +8,7 @@ $inno = Get-ChildItem 'C:\Program Files', 'C:\Program Files (x86)' -Recurse -Fil
 if ($inno) { Copy-Item $inno.FullName (Join-Path $samples 'sample-uninstaller.exe') }
 Log ('samples: ' + ((Get-ChildItem $samples | ForEach-Object { $_.Name + ' ' + $_.Length }) -join '; '))
 $win = Start-App 'start-installeranalysis.ps1' 'Installer Analysis'
-Size-Win $win 1440 900
+Maximize-Win $win
 $win = Find-Top 'Installer Analysis' 10
 function Rows($grid) { @((Get-El $win $grid).FindAll('Descendants', (New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::DataItem)))) }
 function Analyze([string]$file) {

@@ -2509,7 +2509,11 @@ $window.Add_Drop({
 # =============================================================================
 $script:WindowStatePath = Join-Path $PSScriptRoot 'InstallerAnalysis.windowstate.json'
 
-$window.Add_SourceInitialized({ Restore-WindowState -Window $window -Path $script:WindowStatePath })
+$window.Add_SourceInitialized({
+    # The first start, with no saved window state, opens maximized: the design size is a 1080p work area (D-20).
+    if (-not (Test-Path -LiteralPath $script:WindowStatePath)) { $window.WindowState = [System.Windows.WindowState]::Maximized }
+    Restore-WindowState -Window $window -Path $script:WindowStatePath
+})
 $window.Add_Closing({
     Save-WindowState -Window $window -Path $script:WindowStatePath
     if ($script:AnalysisTimer)  { try { $script:AnalysisTimer.Stop() } catch { $null = $_ } }
