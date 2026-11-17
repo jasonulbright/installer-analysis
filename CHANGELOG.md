@@ -16,6 +16,7 @@
 ### Fixed
 
 - Guard the buttons of the vendored SuiteCommon dialogs: the check no longer skips them, and the vendored SuiteCommon gives its dialogs ThemedButtonStyle.
+- Vendor SuiteCommon with the atomic settings save: the settings file is written to a temp file and replaced in one step, so a failed write cannot leave it truncated.
 
 ## [2026.11.15.0029] - 2026-11-15
 
