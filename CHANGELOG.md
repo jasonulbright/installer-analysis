@@ -13,6 +13,10 @@
 
 - Add density, vacant space and guide image tests for the 1080p layout.
 
+### Fixed
+
+- Guard the buttons of the vendored SuiteCommon dialogs: the check no longer skips them, and the vendored SuiteCommon gives its dialogs ThemedButtonStyle.
+
 ## [2026.11.15.0029] - 2026-11-15
 
 ## 6 disabled text boxes now dim
