@@ -74,7 +74,7 @@ Describe 'Capture scripts' {
         $script:InvokeText | Should -Match '-ArgumentList \$root, \$LogonUser, \$captureJson, \$taskName'
     }
 
-    It 'takes the capture lock with New-Item and an IOException catch, and treats a lock older than 60 minutes as stale' {
+    It 'takes the capture lock with New-Item and an IOException catch, and treats a lock as stale only after 30 minutes with no running owner' {
         $newItem = @($script:InvokeAst.FindAll({
                     param($n)
                     $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'New-Item' -and
@@ -88,8 +88,10 @@ Describe 'Capture scripts' {
                 }, $true))
         $catch.Count | Should -Be 1
         $script:InvokeText | Should -Match "\`$lockPath = 'C:\\guide\\capture\.lock'"
-        $script:InvokeText | Should -Match '-ArgumentList \$lockPath, \$lockToken, 60, \$LockWaitMinutes'
-        $script:InvokeText | Should -Match 'TotalMinutes -gt \$staleMinutes'
+        $script:InvokeText | Should -Match '-ArgumentList \$lockPath, \$lockToken'
+        $script:InvokeText | Should -Match '\[int\]\$age -gt 30 -and \$aliveLab -ne ''True'' -and -not \(Get-Process -Id \$ownerPid'
+        $script:InvokeText | Should -Match 'The stale lab lock .* was removed'
+        $script:InvokeText | Should -Match '''unknown: '' \+ \$held'
     }
 
     It 'works in its own folder and its own task, removes only its own files and the lock, and never removes C:\guide' {
@@ -117,20 +119,7 @@ Describe 'Capture scripts' {
         $iLock | Should -BeGreaterThan $iFolder
     }
 
-    It 'does not spin on a stale lock, re-reads the age before the delete and touches the lock while it runs' {
-        $script:InvokeText | Should -Match '\$again = Get-Item -LiteralPath \$path'
-        $script:InvokeText | Should -Match 'Move-Item -LiteralPath \$path -Destination \$stale -ErrorAction Stop'
-        $script:InvokeText | Should -Match '\$stale = "\$path\.stale\.\$token"'
-        # After the rename the age of the moved file is read again. A live lock moves back. Only a stale one is deleted.
-        $script:InvokeText | Should -Match '\$moved = Get-Item -LiteralPath \$stale -ErrorAction Stop'
-        $script:InvokeText | Should -Match '\$moved\.LastWriteTime\)\.TotalMinutes -gt \$staleMinutes'
-        $script:InvokeText | Should -Match 'Move-Item -LiteralPath \$stale -Destination \$path -ErrorAction Stop'
-        $iRead = $script:InvokeText.IndexOf('$moved = Get-Item')
-        $iDelete = $script:InvokeText.IndexOf('Remove-Item -LiteralPath $stale')
-        $iRead | Should -BeGreaterThan 0
-        $iDelete | Should -BeGreaterThan $iRead -Because 'the delete follows the age check of the moved file'
-        $script:InvokeText | Should -Not -Match '(?s)\$again = Get-Item.{0,400}Remove-Item -LiteralPath \$path\b'
-        $script:InvokeText | Should -Match 'if \(-not \(Test-Path -LiteralPath \$path\)\) \{ continue \}'
+    It 'does not spin, never removes a live owner lock and touches the lock while it runs' {
         $script:InvokeText | Should -Match '\.LastWriteTime = Get-Date'
     }
 
