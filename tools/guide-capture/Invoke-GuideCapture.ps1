@@ -68,7 +68,7 @@ if (-not ($LabCredential -is [System.Management.Automation.PSCredential])) { thr
 $root = "C:\guide\$app"
 $taskName = "GuideShots-$app"
 $lockPath = 'C:\guide\capture.lock'
-$lockToken = [guid]::NewGuid().ToString('N')
+$lockToken = '{0}|{1}|{2}' -f $app, $PID, (Get-Date).ToString('o')
 $haveLock = $false
 $captureJson = '{}'
 $failed = New-Object System.Collections.Generic.List[string]
@@ -78,50 +78,43 @@ $succeeded = $false
 $session = $null
 try {
     $session = New-PSSession -ComputerName $Target -Credential $LabCredential
-    # The lock: New-Item with -ErrorAction Stop fails with an IOException when the file exists.
-    # Wait for the holder. A lock that is older than the stale age belongs to a dead capture and is removed.
-    $haveLock = Invoke-Command $session {
-        param($path, $token, $staleMinutes, $waitMinutes)
-        New-Item -ItemType Directory -Path (Split-Path -Path $path -Parent) -Force | Out-Null
-        $deadline = (Get-Date).AddMinutes($waitMinutes)
-        while ($true) {
-            try {
-                $null = New-Item -ItemType File -Path $path -ErrorAction Stop
-                Set-Content -LiteralPath $path -Value $token
-                return $true
-            }
+    # The lock (D-16): C:\guide\capture.lock, text owner|pid|start. New-Item fails with an IOException when the file exists: busy.
+    # A lock is stale only when its last write is older than 30 minutes AND its owner pid runs neither on the lab computer nor on
+    # this computer. The lock of a live owner is never removed. A lock in a format this tool does not know blocks and is reported.
+    # A removed lock is reported with a warning. The holder refreshes the lock in its poll loop.
+    $lockEnd = (Get-Date).AddMinutes($LockWaitMinutes)
+    $unknownReported = $false
+    while (-not $haveLock) {
+        $got = Invoke-Command $session {
+            param($path, $text)
+            New-Item -ItemType Directory -Path (Split-Path -Path $path -Parent) -Force | Out-Null
+            try { $null = New-Item -ItemType File -Path $path -Value $text -ErrorAction Stop; 'taken' }
             catch [System.IO.IOException] {
-                $held = Get-Item -LiteralPath $path -ErrorAction SilentlyContinue
-                if ($held -and ((Get-Date) - $held.LastWriteTime).TotalMinutes -gt $staleMinutes) {
-                    # Read the age again right before the rename: the holder may have touched the lock. Rename the stale
-                    # lock to a name of this capture (only one waiter wins the rename; a lost rename counts as busy), then
-                    # delete the renamed file. A waiter never deletes a fresh lock. Retry at once only when the lock is gone.
-                    # Otherwise fall to the deadline check and the sleep, so the loop never spins.
-                    $again = Get-Item -LiteralPath $path -ErrorAction SilentlyContinue
-                    if ($again -and ((Get-Date) - $again.LastWriteTime).TotalMinutes -gt $staleMinutes) {
-                        $stale = "$path.stale.$token"
-                        try {
-                            Move-Item -LiteralPath $path -Destination $stale -ErrorAction Stop
-                            # The file that was moved may be a fresh lock that another waiter created between the read and the
-                            # rename. Read its age again. A lock that is not older than the stale age goes back and counts as busy.
-                            $moved = Get-Item -LiteralPath $stale -ErrorAction Stop
-                            if (((Get-Date) - $moved.LastWriteTime).TotalMinutes -gt $staleMinutes) {
-                                Remove-Item -LiteralPath $stale -Force -ErrorAction SilentlyContinue
-                            }
-                            else {
-                                Move-Item -LiteralPath $stale -Destination $path -ErrorAction Stop
-                            }
-                        }
-                        catch { $null = $_ }
-                    }
-                    if (-not (Test-Path -LiteralPath $path)) { continue }
+                $item = Get-Item -LiteralPath $path -ErrorAction SilentlyContinue
+                if (-not $item) { 'gone' }
+                else {
+                    $held = ([string](Get-Content -LiteralPath $path -Raw -ErrorAction SilentlyContinue)).Trim()
+                    if ($held -notmatch '^[^|\s][^|]*\|\d+\|\d{4}-\d{2}-\d{2}T') { 'unknown: ' + $held }
+                    else { 'held: {0}|{1}|{2}' -f [int]((Get-Date) - $item.LastWriteTime).TotalMinutes, [bool](Get-Process -Id ([int]($held -split '\|')[1]) -ErrorAction SilentlyContinue), $held }
                 }
-                if ((Get-Date) -gt $deadline) { return $false }
-                Start-Sleep -Seconds 15
+            }
+        } -ArgumentList $lockPath, $lockToken
+        if ($got -eq 'taken') { $haveLock = $true; continue }
+        if ($got -eq 'gone') { continue }
+        if ($got -like 'unknown:*') {
+            if (-not $unknownReported) { Write-Warning "The lab lock $lockPath has a format this tool does not know and blocks the capture ($got). Waiting; the lock is not removed."; $unknownReported = $true }
+        }
+        elseif ($got -like 'held:*') {
+            $age, $aliveLab, $heldText = $got.Substring(6) -split '\|', 3
+            $ownerPid = [int]($heldText -split '\|')[1]
+            if ([int]$age -gt 30 -and $aliveLab -ne 'True' -and -not (Get-Process -Id $ownerPid -ErrorAction SilentlyContinue)) {
+                $removed = Invoke-Command $session { param($path, $text) if (([string](Get-Content -LiteralPath $path -Raw -ErrorAction SilentlyContinue)).Trim() -eq $text) { Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue; $true } else { $false } } -ArgumentList $lockPath, $heldText
+                if ($removed) { Write-Warning "The stale lab lock $lockPath was removed ($heldText; last write $age minutes ago; owner pid $ownerPid is not running)."; continue }
             }
         }
-    } -ArgumentList $lockPath, $lockToken, 60, $LockWaitMinutes
-    if (-not $haveLock) { throw "Another capture holds $lockPath. The wait of $LockWaitMinutes minutes is over." }
+        if ((Get-Date) -gt $lockEnd) { throw "Another capture holds $lockPath. The wait of $LockWaitMinutes minutes is over." }
+        Start-Sleep -Seconds 15
+    }
     foreach ($steps in 'steps-guide.ps1') {
         $dest = $root
         # A fresh copy for each run. Stop only the leftovers of an earlier capture of this app.
