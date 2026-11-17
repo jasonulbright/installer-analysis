@@ -53,6 +53,5 @@ Each defect has a failing test that was run against the code before the fix.
 - The NSIS and Inno Setup readers beyond the cases in the existing tests: they need compiled installers of many versions.
 - WiX Burn, Squirrel and Velopack readers: the marker and header branches that need real setup files.
 - Handlers that run inside the window (Browse, Options dialog, drag and drop, the analysis timer and the background runspace, the breadcrumb bar). They need a user at the window. The functions they call are tested.
-- The settings save in SuiteCommon is not atomic. The fix belongs in `app-packager-suite`.
 - Start-up without the ConfigMgr module and the ConfigMgr contract tests do not apply: the app never calls ConfigMgr.
 - Lab run: not needed. The app reads installers and writes only to folders and files that the user picks.
