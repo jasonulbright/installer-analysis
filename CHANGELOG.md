@@ -4,7 +4,7 @@
 
 ### Changed
 
-- Use ConfigMgr terms and the wording of Microsoft Learn in the guide, the README, the empty-state hint and the Options text.
+- Use ConfigMgr terms and the wording of Microsoft Learn in the guide, the README, the empty-state hint, the Options text, the Overview headings for MSP files and the log messages.
 - Name only Configuration Manager and Microsoft Intune as the packaging targets in the README and in the guide. Detection of NuGet packages stays.
 
 ## [2026.11.18.0030] - 2026-11-18

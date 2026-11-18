@@ -32,8 +32,8 @@ redistribute third-party installer content. It operates entirely
 offline against installers the user already possesses.
 
 Every extractor in this repository maps to a publicly documented
-precedent on GitHub, usually owned by the format's vendor (Microsoft,
-WiX Toolset, and the NuGet team) - see [SOURCES.md](SOURCES.md) for the
+precedent on GitHub, usually owned by the format's vendor (for example, Microsoft,
+WiX Toolset and the NuGet team) - see [SOURCES.md](SOURCES.md) for the
 per-function precedent map.
 
 ## Installer formats detected
@@ -112,7 +112,7 @@ Every analysis surfaces:
   The ARP DisplayVersion uses `major.minor.patch`; the full version,
   including prerelease/build labels, remains in package metadata.
   Metadata reads do not require 7-Zip or extraction.
-- **Effective detection target after an MSP** - for outer files that
+- **Effective detection target after the MSP** - for outer files that
   contain a base MSI plus a cumulative MSP (Adobe Reader, Office, most
   enterprise vendors), the analyzer combines the inner MSI's ProductCode
   with the MSP's `MsiPatchMetadata.DisplayName` to render the ARP key
