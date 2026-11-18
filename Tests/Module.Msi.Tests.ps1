@@ -133,7 +133,7 @@ Describe 'The vendored MSI module (Lib\MSI), loaded by path as the script does' 
         $p['ProductName'] | Should -Be 'Acme Tool'
         $p.Count | Should -Be 5
         Should -Invoke Write-Log -ModuleName InstallerAnalysisCommon -Times 0 -Exactly -ParameterFilter { $Level -eq 'WARN' }
-        Should -Invoke Write-Log -ModuleName InstallerAnalysisCommon -Times 1 -Exactly -ParameterFilter { $Message -like 'Read * MSI properties via MSI module' }
+        Should -Invoke Write-Log -ModuleName InstallerAnalysisCommon -Times 1 -Exactly -ParameterFilter { $Message -like 'Read * MSI properties by using the MSI module' }
     }
 
     It 'reads the summary without the fall-back to Windows Installer' {

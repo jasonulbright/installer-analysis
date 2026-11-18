@@ -5,8 +5,8 @@
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D4)](#requirements)
 [![License](https://img.shields.io/github/license/jasonulbright/installer-analysis)](LICENSE)
 
-Inspect a Windows installer and pull out the deployment data needed to
-package it for Configuration Manager, Intune, or Chocolatey - in one pass, with no admin
+Inspect a Windows installer and extract the deployment data needed to
+package it for Configuration Manager or Microsoft Intune in one pass, with no admin
 rights, no network, and no Configuration Manager connection.
 
 ![Installer Analysis](screenshots/screenshot.png)
@@ -32,8 +32,8 @@ redistribute third-party installer content. It operates entirely
 offline against installers the user already possesses.
 
 Every extractor in this repository maps to a publicly documented
-precedent on GitHub, usually owned by the format's vendor (Microsoft,
-WiX Toolset, NuGet team, etc.) - see [SOURCES.md](SOURCES.md) for the
+precedent on GitHub, usually owned by the format's vendor (for example, Microsoft,
+WiX Toolset and the NuGet team) - see [SOURCES.md](SOURCES.md) for the
 per-function precedent map.
 
 ## Installer formats detected
@@ -54,7 +54,7 @@ guessing.
 
 Every analysis surfaces:
 
-- **Source facts** - type, architecture, size, SHA-256, Authenticode
+- **File details** - type, architecture, size, SHA-256, Authenticode
   signature with signer subject.
 - **Deployment fields** - DisplayName, DisplayVersion, Vendor, silent
   install / uninstall command lines, predicted `UninstallRegistryKey`
@@ -64,8 +64,8 @@ Every analysis surfaces:
   MSI: ProductCode, UpgradeCode, ProductVersion, Manufacturer, plus the
   full Property table.
 - **Package metadata** - format-specific block per detected type
-  (nuspec for `.nupkg`, AppxManifest for MSIX, MsiPatchMetadata for MSP,
-  `.wixburn` PE section for WiX Burn, etc.). `.intunewin` AES key
+  (for example, nuspec for `.nupkg`, AppxManifest for MSIX, MsiPatchMetadata for MSP,
+  `.wixburn` PE section for WiX Burn). `.intunewin` AES key
   material (EncryptionKey, MacKey, IV, Mac) is redacted by default;
   pass `-IncludeIntunewinKeyMaterial` to `Get-IntunewinMetadata` if you
   need the raw values.
@@ -112,21 +112,21 @@ Every analysis surfaces:
   The ARP DisplayVersion uses `major.minor.patch`; the full version,
   including prerelease/build labels, remains in package metadata.
   Metadata reads do not require 7-Zip or extraction.
-- **Effective post-patch detection target** - for outer files that
+- **Effective detection target after the MSP** - for outer files that
   contain a base MSI plus a cumulative MSP (Adobe Reader, Office, most
   enterprise vendors), the analyzer combines the inner MSI's ProductCode
   with the MSP's `MsiPatchMetadata.DisplayName` to render the ARP key
-  and DisplayVersion the patched product will actually write - so
+  and DisplayVersion that the updated product writes, so
   detection methods can be authored without installing the product.
 
 ## Inner Installers
 
 A dedicated tab classifies the installer-class entries inside the
 current file's payload (inner MSIs / MSPs / sub-EXEs / `.nupkg` / Media-
-table CABs). Pick a row and click **Analyze Selected** to drill into it:
+table CABs). Pick a row and select **Analyze Selected** to drill into it:
 the analyzer extracts the entry to a sandboxed temp folder, re-runs the
 full pipeline on it, and surfaces a breadcrumb bar with `<- Back` plus
-clickable ancestor segments. **Open in New Window** spawns a sibling
+ancestor segments that you can select. **Open in New Window** spawns a sibling
 analyzer process so you can compare the outer and inner side-by-side.
 Drill depth caps at 5. Temp folder is wiped on shell close.
 

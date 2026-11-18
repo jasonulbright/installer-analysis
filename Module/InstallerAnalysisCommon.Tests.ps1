@@ -2866,7 +2866,7 @@ Describe 'Get-InstallerType returns MSP for .msp extension' {
     }
 }
 
-Describe 'New-AnalysisSummaryText renders Effective Post-Patch Detection Target' {
+Describe 'New-AnalysisSummaryText renders Effective Detection Target After the MSP' {
     BeforeAll {
         # Synthetic FileInfo
         $script:tFi = [PSCustomObject]@{
@@ -2911,7 +2911,7 @@ Describe 'New-AnalysisSummaryText renders Effective Post-Patch Detection Target'
             -MspMetadata @($tMsp) -InnerMsiData $tInnerMsi
 
         # The block header is present
-        $text | Should -Match 'Effective Post-Patch Detection Target:'
+        $text | Should -Match 'Effective Detection Target After the MSP:'
         # ProductCode comes from the inner base MSI (en_US 1033 variant)
         $text | Should -Match '\{AAAAAAAA-AAAA-1033-AAAA-AAAAAAAAAAAA\}'
         # Post-patch DisplayVersion is the MSP-inferred one
@@ -2927,7 +2927,7 @@ Describe 'New-AnalysisSummaryText renders Effective Post-Patch Detection Target'
             -FileInfo $tFi -InstallerType '7zSFX' `
             -DeploymentFields ([PSCustomObject]@{ DisplayName='Test Outer'; DisplayVersion='1.0'; Vendor='X'; SilentUninstallString='' }) `
             -MspMetadata @($tMsp)
-        $text | Should -Match 'Effective Post-Patch Detection Target:'
+        $text | Should -Match 'Effective Detection Target After the MSP:'
         # Without inner MSI we pick TargetProductCodes[0] which is 1041
         $text | Should -Match '\{AAAAAAAA-AAAA-1041-AAAA-AAAAAAAAAAAA\}'
     }
@@ -2936,7 +2936,7 @@ Describe 'New-AnalysisSummaryText renders Effective Post-Patch Detection Target'
         $text = New-AnalysisSummaryText `
             -FileInfo $tFi -InstallerType 'MSI' `
             -DeploymentFields ([PSCustomObject]@{ DisplayName='Plain'; DisplayVersion='1.0'; Vendor='X'; SilentUninstallString='' })
-        $text | Should -Not -Match 'Effective Post-Patch Detection Target'
+        $text | Should -Not -Match 'Effective Detection Target After the MSP'
     }
 
     # Empty inferred version: the ARP value match line was rendered even when

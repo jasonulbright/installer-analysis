@@ -354,7 +354,7 @@
                          FontSize="11"
                          BorderThickness="0"
                          Padding="8"
-                         Text="No file loaded. Drag an installer onto the window, click Browse, or paste a path above and press Enter."/>
+                         Text="No file loaded. Drag an installer onto the window, select Browse, or paste a path above and press Enter."/>
 
                 <DataGrid x:Name="gridMsi"
                           Visibility="Collapsed"

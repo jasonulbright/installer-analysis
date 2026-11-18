@@ -4,12 +4,12 @@
 
 .DESCRIPTION
     Provides functions for analyzing installer files (EXE, MSI):
-      - Structured logging via the vendored SuiteCommon module (Lib\SuiteCommon)
+      - Structured logging by using the vendored SuiteCommon module (Lib\SuiteCommon)
       - File identification (version info, PE architecture, digital signature)
-      - Installer type detection (MSI, NSIS, Inno Setup, InstallShield, WiX Burn, etc.)
-      - MSI property extraction (via PSGallery MSI module or COM fallback)
+      - Installer type detection (MSI, NSIS, Inno Setup, InstallShield, WiX Burn, and others)
+      - MSI property extraction (by using the PSGallery MSI module, with COM as the fallback)
       - Silent install switch lookup
-      - Payload extraction via 7-Zip
+      - Payload extraction by using 7-Zip
       - Binary string analysis
       - Export to CSV, HTML, clipboard
 
@@ -998,7 +998,7 @@ function Get-ZipEntryPathByPattern {
         Returns the first ZIP entry full path whose file-name matches a wildcard, or $null.
     .DESCRIPTION
         Searches the whole archive (any depth). Useful for sentinel files that may live
-        under a top-level folder (e.g. PSADT's AppDeployToolkit/AppDeployToolkitMain.ps1).
+        under a top-level folder (for example, PSADT's AppDeployToolkit/AppDeployToolkitMain.ps1).
     #>
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -1093,7 +1093,7 @@ function Get-PsadtMetadata {
         Detects v3 (Deploy-Application.ps1 + AppDeployToolkit/AppDeployToolkitMain.ps1) or
         v4 (Invoke-AppDeployToolkit.ps1 + PSAppDeployToolkit module) layouts. Reads the
         toolkit engine version from the engine script/module and the per-app metadata
-        ($appName, $appVersion, $appVendor, etc.) from the deployment script.
+        ($appName, $appVersion, $appVendor, and so on) from the deployment script.
 
         Sources:
           https://psappdeploytoolkit.com/docs/4.0.x/deployment-concepts/deployment-structure
@@ -4001,7 +4001,7 @@ function Get-PackageMetadataFor {
     .DESCRIPTION
         Returns the PackageMetadata PSCustomObject for known framework types, or
         $null for types that don't have a framework-specific metadata extractor
-        (MSI is handled via Get-MsiProperties / Get-MsiSummaryInfo elsewhere).
+        (MSI is handled by Get-MsiProperties / Get-MsiSummaryInfo elsewhere).
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification='Dispatches to a single Get-*Metadata extractor; returns one PackageMetadata object or null.')]
     param(
@@ -4304,7 +4304,7 @@ function Get-MsiProperties {
             foreach ($p in $props) {
                 $result[$p.Property] = $p.Value
             }
-            Write-Log "Read $($result.Count) MSI properties via MSI module"
+            Write-Log "Read $($result.Count) MSI properties by using the MSI module"
             return $result
         }
         catch {
@@ -4334,7 +4334,7 @@ function Get-MsiProperties {
             [System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($record) | Out-Null
         }
 
-        Write-Log "Read $($result.Count) MSI properties via COM"
+        Write-Log "Read $($result.Count) MSI properties by using COM"
         return $result
     }
     catch {
@@ -4374,7 +4374,7 @@ function script:ConvertTo-MsiArchitecture {
 function Get-MsiSummaryInfo {
     <#
     .SYNOPSIS
-        Reads MSI summary information stream (architecture, package code, etc.).
+        Reads MSI summary information stream (architecture, package code, and so on).
     #>
     param([Parameter(Mandatory)][string]$MsiPath)
 
@@ -4579,7 +4579,7 @@ function Get-MspMetadata {
     .SYNOPSIS
         Reads the metadata stored in a Windows Installer Patch (.msp) file.
     .DESCRIPTION
-        Opens the patch via OpenDatabase mode 32 (MSIOPEN_PATCHFILE) and
+        Opens the .msp file with OpenDatabase mode 32 (MSIOPEN_PATCHFILE) and
         returns a PSCustomObject with SummaryInformation (Template,
         RevisionNumber), MsiPatchMetadata (DisplayName, TargetProductName,
         Classification, ...), and an InferredDisplayVersion parsed from
@@ -4895,7 +4895,7 @@ function Get-SilentSwitchDatabase {
         'BitRock' = @{
             Install   = '"<EXE>" --mode unattended --unattendedmodeui none'
             Uninstall = '"<UninstallEXE>" --mode unattended --unattendedmodeui none'
-            Notes     = 'BitRock InstallBuilder (used by PostgreSQL, Bitnami, JFrog Artifactory, etc.). Modes: unattended, text, gtk, win32, osx, xwindow. Run with --help for the full switch list on a specific product. Uninstaller lives at %INSTALLDIR%\uninstall.exe by default.'
+            Notes     = 'BitRock InstallBuilder (used by PostgreSQL, Bitnami, JFrog Artifactory, and others). Modes: unattended, text, gtk, win32, osx, xwindow. Run with --help for the full switch list on a specific product. Uninstaller lives at %INSTALLDIR%\uninstall.exe by default.'
         }
         'Chocolatey' = @{
             Install   = 'choco install <PackageId> --version=<Version> -y --source="<SourceDirOrFeed>"'
@@ -4910,7 +4910,7 @@ function Get-SilentSwitchDatabase {
         'Msix' = @{
             Install   = 'Add-AppxPackage -Path "<msix>"'
             Uninstall = 'Remove-AppxPackage -Package "<PackageFullName>"'
-            Notes     = 'Per-user: Add-AppxPackage. All-users / provisioned: Add-AppxProvisionedPackage -Online -PackagePath "<msix>" -SkipLicense. PackageFullName = Name_Version_Arch_ResourceId_PublisherHash; retrieve via Get-AppxPackage after install. Applies to .msix and .appx.'
+            Notes     = 'Per-user: Add-AppxPackage. All-users / provisioned: Add-AppxProvisionedPackage -Online -PackagePath "<msix>" -SkipLicense. PackageFullName = Name_Version_Arch_ResourceId_PublisherHash; retrieve it by using Get-AppxPackage after install. Applies to .msix and .appx.'
         }
         'MsixBundle' = @{
             Install   = 'Add-AppxPackage -Path "<msixbundle>"'
@@ -5546,7 +5546,7 @@ function Get-InterestingStrings {
     .DESCRIPTION
         Scans the binary for interesting patterns (URLs, registry keys, file
         paths, GUIDs, framework markers, version triples) across both ASCII and
-        UTF-16LE encodings. Operates directly on decoded buffers via compiled
+        UTF-16LE encodings. Operates directly on decoded buffers by using compiled
         regex -- no intermediate "all strings" array. Modern installers
         (Squirrel/Electron, MSI custom actions, Unicode NSIS/Inno) store these
         as wide chars, so the ASCII-only scan that lived here before missed
@@ -5750,7 +5750,7 @@ function script:Expand-InstallerPlaceholders {
     .SYNOPSIS
         Substitutes known concrete values into the templated strings that the
         silent-switch database, package-metadata extractors, and uninstall-key
-        notes carry (e.g. "<AppName>", "<Setup.exe>", "<ProductCode>").
+        notes carry (for example, "<AppName>", "<Setup.exe>", "<ProductCode>").
     .DESCRIPTION
         The tool is for inspecting installers, so every value the analysis
         already knows should appear baked into the rendered output -- not as a
@@ -5865,7 +5865,7 @@ function New-AnalysisSummaryText {
         }
     }
 
-    # Effective Post-Patch Detection Target. Surfaced when the outer file
+    # Effective Detection Target After the MSP. Surfaced when the outer file
     # contains at least one .msp (Adobe Reader, Office security rollups,
     # vendor base-MSI + cumulative-MSP shipments). The MSP's
     # MsiPatchMetadata.DisplayName carries the post-patch DisplayVersion the
@@ -5879,7 +5879,7 @@ function New-AnalysisSummaryText {
     }
     if ($primaryMsp) {
         $lines += ""
-        $lines += "Effective Post-Patch Detection Target:"
+        $lines += "Effective Detection Target After the MSP:"
         if ($primaryMsp.TargetProductName) {
             $lines += "  Patched product:         $($primaryMsp.TargetProductName)"
         }
@@ -6033,7 +6033,7 @@ function New-AnalysisSummaryText {
                 $hasAnyPkg = $true
             }
             'MSP' {
-                $lines += ""; $lines += "Patch Metadata (MsiPatchMetadata):"
+                $lines += ""; $lines += "MSP Metadata (MsiPatchMetadata):"
                 if ($pkg.PSObject.Properties['PatchDisplayName'] -and $pkg.PatchDisplayName) {
                     $lines += "  DisplayName:             $($pkg.PatchDisplayName)"
                 }

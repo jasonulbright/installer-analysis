@@ -6,7 +6,7 @@ The Overview shows the result of the analysis as text that you can copy.
 
 The text has these blocks. A block shows only when the file has data for it.
 
-- **Source facts**: the type, the architecture, the size, the SHA-256 hash and the Authenticode signature with the signer.
+- **File details**: the type, the architecture, the size, the SHA-256 hash and the Authenticode signature with the signer.
 - **Deployment fields**: `DisplayName`, `DisplayVersion`, `Vendor`, the silent install command, the silent uninstall command and the predicted uninstall registry key, which is the key in Add/Remove Programs.
 - **MSI properties**: the product code, the upgrade code, the version and the manufacturer, for an MSI.
 - **Package metadata**: a block for the detected type, for example the nuspec of a `.nupkg` or the manifest of an MSIX.
@@ -22,7 +22,7 @@ An analyzed file. See [Getting started](../getting-started.md).
 
 ## Steps
 
-### Read an MSI
+### Analyze an MSI
 
 1. Open an MSI. The Overview shows the type `MSI`, the signer, the product name and version, the silent install command `msiexec.exe /i "<file>" /qn /norestart` and the silent uninstall command with the product code.
 
@@ -30,7 +30,7 @@ An analyzed file. See [Getting started](../getting-started.md).
 
 2. Use the product code for a Windows Installer detection method. The uninstall registry key follows the product code.
 
-### Read an EXE
+### Analyze an EXE
 
 1. Open an EXE. The type is one of the [Installer types](../reference/installer-types.md), or `Unknown`.
 2. For an unknown type the tool shows the file version data and the text `Unable to determine`. The text names switches, for example `/?` or `--help`. Try them only with a file that you trust and in an isolated environment. The file can ignore them and start an installation or an uninstallation.
@@ -65,7 +65,7 @@ This guide did not capture the menu: a menu is a separate window that the captur
 | Message or symptom | Cause | Fix |
 |---|---|---|
 | The Overview is empty. | No file is open. | Select **Browse...**. |
-| `Unable to determine` for the silent install command. | The type has no known silent switch. | Read the documentation of the vendor. Try `/?` and `--help` only with a trusted file in an isolated environment. |
+| `Unable to determine` for the silent install command. | The type has no known silent switch. | See the vendor documentation. Try `/?` and `--help` only with a trusted file in an isolated environment. |
 
 ## Links
 

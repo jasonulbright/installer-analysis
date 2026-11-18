@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Use ConfigMgr terms and the wording of Microsoft Learn in the guide, the README, the empty-state hint, the Options text, the Overview headings for MSP files and the log messages.
+- Name only Configuration Manager and Microsoft Intune as the packaging targets in the README and in the guide. Detection of NuGet packages stays.
+
 ## [2026.11.18.0030] - 2026-11-18
 
 ## 9 changes: 1080p layout, guards, atomic settings save
@@ -453,7 +458,7 @@ Initial public release.
 
 - Classic EXE: NSIS, Inno Setup, InstallShield, WiX Burn, 7-Zip SFX, BitRock
 - MSI family: MSI, MSP
-- Modern packages: MSIX / APPX (+ bundles), `.intunewin`, Chocolatey / NuGet `.nupkg`
+- Modern packages: MSIX / APPX (+ bundles), `.intunewin`, NuGet `.nupkg` packages
 - Script wrappers: PSAppDeployToolkit v3 + v4, Squirrel / Electron
 
 ### Overview
