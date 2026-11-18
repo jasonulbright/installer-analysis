@@ -343,7 +343,7 @@ $toggleTheme.Add_Toggled({
 $script:ViewMeta = @{
     'Overview'         = @{ Title = 'Overview';         Subtitle = 'Summary of installer type, deployment fields, MSI / package metadata, and silent switches.' }
     'MSI Properties'   = @{ Title = 'MSI Properties';   Subtitle = 'Full Property table from the MSI. Populated for MSI files or EXE wrappers with an embedded MSI.' }
-    'Payload'          = @{ Title = 'Payload';          Subtitle = 'Contents listing via 7-Zip. Populated for EXE-wrapped installers (NSIS, Inno, InstallShield, WiX Burn, SFX).' }
+    'Payload'          = @{ Title = 'Payload';          Subtitle = 'Contents listing by using 7-Zip. Populated for EXE-wrapped installers (NSIS, Inno, InstallShield, WiX Burn, SFX).' }
     'Inner Installers' = @{ Title = 'Inner Installers'; Subtitle = 'Installer-class payload entries (MSIs, CABs, EXEs, .nupkg) that can themselves be opened and analyzed. Drill in with Analyze Selected.' }
     'File Browser'     = @{ Title = 'File Browser';     Subtitle = 'The 7-Zip file listing as folders. Select files or folders and extract them, with their paths, to a folder of your choice.' }
     'Registry Settings' = @{ Title = 'Registry Settings'; Subtitle = 'Registry keys and values the installer writes or removes: MSI Registry and RemoveRegistry tables, NSIS compiled script (installer and uninstaller), or the Inno Setup [Registry] section. Values keep their variables and constants.' }
@@ -1155,7 +1155,7 @@ function Invoke-AnalysisPipeline {
             # 7-Zip runs against any file when available; empty result if it
             # can't parse the format.
             if ($SevenZipPath) {
-                $State.Step = 'Listing payload via 7-Zip...'
+                $State.Step = 'Listing payload by using 7-Zip...'
                 $payload = Get-PayloadContents -Path $Path -SevenZipPath $SevenZipPath
                 $State.Step = 'Classifying inner installers...'
                 $embedded = Get-EmbeddedInstallers -Payload $payload -Type $type -PackageMetadata $pkg -ParentPath $Path
@@ -1182,7 +1182,7 @@ function Invoke-AnalysisPipeline {
                         $leaf = [System.IO.Path]::GetFileName([string]$mspEntry.Name)
                         $mspPath = Join-Path $mspCacheDir $leaf
                         if (-not (Test-Path -LiteralPath $mspPath)) {
-                            $State.Step = "Extracting $leaf (post-patch metadata read)..."
+                            $State.Step = "Extracting $leaf (MSP metadata read)..."
                             $mspPath = Expand-PayloadEntry -SevenZipPath $SevenZipPath `
                                 -ArchivePath $Path -EntryName ([string]$mspEntry.Name) -OutputDir $mspCacheDir
                         }
@@ -1477,7 +1477,7 @@ function New-LoggingPanel {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Constructs WPF panel; no external state.')]
     param()
 
-    $sp = New-OptionsSection -Heading 'Logging' -Description 'Per-session logs are written to the Logs folder beside start-installeranalysis.ps1. Click Open Logs Folder to review recent sessions.'
+    $sp = New-OptionsSection -Heading 'Logging' -Description 'Per-session logs are written to the Logs folder beside start-installeranalysis.ps1. Select Open Logs Folder to review recent sessions.'
 
     $row = New-Object System.Windows.Controls.StackPanel
     $row.Orientation = [System.Windows.Controls.Orientation]::Horizontal
@@ -1530,7 +1530,7 @@ function New-AboutPanel {
         @{ K = 'Author';     V = 'Jason Ulbright' },
         @{ K = 'License';    V = 'MIT' },
         @{ K = 'Formats';    V = 'MSI, MSP, NSIS, Inno Setup, InstallShield, WiX Burn, Advanced Installer, BitRock, 7zSFX, WinRAR SFX, Chocolatey, NuGet, Intunewin, MSIX, MSIX Bundle, PSADT v3, PSADT v4, Squirrel, Velopack' },
-        @{ K = 'Offline';    V = 'No NuGet, no runtime network pulls. MahApps.Metro / ControlzEx / Xaml.Behaviors vendored under Lib/.' },
+        @{ K = 'Offline';    V = 'No NuGet, no runtime network downloads. MahApps.Metro / ControlzEx / Xaml.Behaviors vendored under Lib/.' },
         @{ K = 'Repository'; V = 'https://github.com/jasonulbright/installer-analysis' }
     )
 
@@ -1571,7 +1571,7 @@ function New-AboutPanel {
 # Commit scriptblocks are GetNewClosure'd to survive factory-return.
 # =============================================================================
 function Show-InstallerAnalysisOptions {
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Shows a modal MetroWindow; OK handler writes back to $global:Prefs via panel Commit scriptblocks and the caller calls Save-IatPreferences. No external state beyond prefs.')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Shows a modal MetroWindow; OK handler writes back to $global:Prefs through panel Commit scriptblocks and the caller calls Save-IatPreferences. No external state beyond prefs.')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification='Renders the Options MetroWindow; the composite noun matches the window it shows, not any underlying collection.')]
     param([Parameter(Mandatory)]$Owner)
 

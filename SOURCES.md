@@ -14,7 +14,6 @@ that the upstream owners of each format already publish themselves.
 | Function in this repo | Capability | Public precedent (GitHub) | Precedent license | Authority |
 |---|---|---|---|---|
 | `Get-ChocolateyMetadata` | Read `.nuspec` from a `.nupkg` ZIP | [NuGet/NuGet.Client](https://github.com/NuGet/NuGet.Client) - official .NET Foundation NuGet client | Apache 2.0 | Vendor (NuGet team) |
-| `Get-ChocolateyMetadata` | Same (Chocolatey emitter / consumer) | [chocolatey/choco](https://github.com/chocolatey/choco) - official Chocolatey CLI | Apache 2.0 | Vendor (Chocolatey team) |
 | `Get-IntunewinMetadata` | Parse unencrypted `IntuneWinPackage/Metadata/Detection.xml` from a `.intunewin` ZIP | [MSEndpointMgr/IntuneWin32App](https://github.com/MSEndpointMgr/IntuneWin32App) - `Expand-IntuneWin32AppPackage` reads Detection.xml for the encryption metadata | MIT | Community standard |
 | `Get-IntunewinMetadata` | Same (long-standing community decoder) | [okieselbach/Intune](https://github.com/okieselbach/Intune/tree/master/IntuneWinAppUtilDecoder) - Oliver Kieselbach's `IntuneWinAppUtilDecoder` | See repo | Community standard |
 | `Get-IntunewinMetadata` | Format authority (create side) | [microsoft/Microsoft-Win32-Content-Prep-Tool](https://github.com/microsoft/Microsoft-Win32-Content-Prep-Tool) - the tool that creates `.intunewin` files | Microsoft proprietary | Vendor (Microsoft Intune team) |

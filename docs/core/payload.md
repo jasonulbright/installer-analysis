@@ -19,7 +19,7 @@ Use it to find the MSI inside a setup EXE, or to read an inner installer on its 
 ### List the payload
 
 1. Open an EXE wrapper. Select **Payload** in the sidebar.
-2. Read the list. On an MSI, or without 7-Zip, the list is empty.
+2. Review the list. On an MSI, or without 7-Zip, the list is empty.
 
 ![The Payload view without entries](../images/view-payload.png)
 

@@ -4,7 +4,7 @@ This page shows how to start Installer Analysis, open an installer and read the 
 
 ## What it does
 
-The tool reads the metadata of an installer file: its type, architecture, size, SHA-256 hash and signature, and the deployment fields that you need for Configuration Manager, Intune or Chocolatey. It works on the file only. It does not run the installer.
+The tool reads the metadata of an installer file: its type, architecture, size, SHA-256 hash and signature, and the deployment fields that you need for Configuration Manager or Microsoft Intune. It works on the file only. It does not run the installer.
 
 ## When to use it
 
@@ -20,7 +20,7 @@ Use it before you package an application, to find the silent install command, th
 
 ### Start the tool
 
-1. Extract the release zip to a folder that you can write to. The tool saves its settings and logs in that folder.
+1. Extract the release zip to a folder that you can write to. The tool saves its settings and its log files to that folder.
 2. Right-click `start-installeranalysis.ps1` and select **Run with PowerShell**. Or open PowerShell in the extracted folder and run this command. Without the folder, give the full path of the script.
 
 ```powershell
@@ -40,9 +40,9 @@ The window opens on the **Overview**. It is empty until you open a file.
 
 ![The Overview of an MSI](images/overview-msi.png)
 
-### Read the result
+### Review the result
 
-Read the Overview. See [Overview](core/overview.md). Use the sidebar to open the other views. **MSI Properties**, **Payload** and **Strings** always show, also when they have no data. **File Browser**, **Inner Installers** and **Registry Settings** show only when the file has data for them.
+Review the Overview. See [Overview](core/overview.md). Use the sidebar to open the other views. **MSI Properties**, **Payload** and **Strings** always show, also when they have no data. **File Browser**, **Inner Installers** and **Registry Settings** show only when the file has data for them.
 
 ## Options and settings of this page
 

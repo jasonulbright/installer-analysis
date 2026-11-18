@@ -16,7 +16,7 @@ An analyzed file that has registry data. The Strings view needs no extra data.
 
 ## Steps
 
-### Read the registry settings
+### View the registry settings
 
 1. Select **Registry Settings** in the sidebar.
 2. Type text in the filter box. It matches the key, the name, the value and the component, without regard to case.
@@ -26,7 +26,7 @@ The columns are **Root**, **Key**, **Name**, **Type**, **Value**, **Action**, **
 
 ![The Registry Settings view of an MSI](../images/view-registry.png)
 
-### Read the strings
+### View the strings
 
 Select **Strings** in the sidebar. Use the filter box to find text.
 

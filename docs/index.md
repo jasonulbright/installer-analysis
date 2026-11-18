@@ -8,7 +8,7 @@ Installer Analysis reads a Windows installer file and shows the data that you ne
 
 ## Core
 
-- [Overview](core/overview.md): the type, the source facts, the deployment fields and the package metadata.
+- [Overview](core/overview.md): the type, the file details, the deployment fields and the package metadata.
 - [MSI Properties](core/msi-properties.md): the property table of an MSI.
 - [Payload and inner installers](core/payload.md): the files inside an EXE wrapper, which need 7-Zip.
 - [Registry Settings and Strings](core/registry-and-strings.md): the registry keys that the installer writes and the strings of the file.
