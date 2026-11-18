@@ -6,6 +6,9 @@ param([string]$GuideRoot)
 $ErrorActionPreference = 'Stop'
 $OutDir = Join-Path $GuideRoot 'ui\out'; New-Item -ItemType Directory $OutDir -Force | Out-Null
 $appDir = $GuideRoot
+# Record this runner in the ledger, so that the capture tool stops it by process id and never by a command-line pattern.
+$me = Get-Process -Id $PID
+('{0}|{1}' -f $me.Id, $me.StartTime.Ticks) | Add-Content -LiteralPath (Join-Path $PSScriptRoot 'run.pids')
 $state = 'finished'
 try {
     . (Join-Path $GuideRoot 'ui\guilib.ps1')
