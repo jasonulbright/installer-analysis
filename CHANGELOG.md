@@ -13,7 +13,9 @@
 
 - Add density, vacant space and guide image tests for the 1080p layout.
 
-### Fixed
+### Fixed
+
+- Draw grid column headers in the case of their text (Title Case), not in capitals. A window test reads the drawn header text of every view in both themes.
 
 - Guard the buttons of the vendored SuiteCommon dialogs: the check no longer skips them, and the vendored SuiteCommon gives its dialogs ThemedButtonStyle.
 - Vendor SuiteCommon with the atomic settings save: the settings file is written to a temp file and replaced in one step, so a failed write cannot leave it truncated.
