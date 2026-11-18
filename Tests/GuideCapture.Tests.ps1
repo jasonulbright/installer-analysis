@@ -107,7 +107,7 @@ Describe 'Capture scripts' {
         $iFinally | Should -BeGreaterThan 0
         $tail = $script:InvokeText.Substring($iFinally)
         $iStop = $tail.IndexOf('Stop-ScheduledTask')
-        $iKill = $tail.IndexOf('Stop-Process')
+        $iKill = $tail.IndexOf('stopRecorded')
         $iUnregister = $tail.IndexOf('Unregister-ScheduledTask')
         $iFolder = $tail.IndexOf('Remove-Item $r -Recurse')
         $iLock = $tail.IndexOf('Remove-Item -LiteralPath $path -Force')

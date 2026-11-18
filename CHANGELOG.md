@@ -7,6 +7,10 @@
 - Use ConfigMgr terms and the wording of Microsoft Learn in the guide, the README, the empty-state hint, the Options text, the Overview headings for MSP files and the log messages.
 - Name only Configuration Manager and Microsoft Intune as the packaging targets in the README and in the guide. Detection of NuGet packages stays.
 
+### Fixed
+
+- The guide capture tool stops only the processes that it started, by process id. It no longer stops PowerShell processes by command-line pattern, which could end the window of another session. A new guard test fails when a tool script stops a process by a pattern.
+
 ## [2026.11.18.0030] - 2026-11-18
 
 ## 9 changes: 1080p layout, guards, atomic settings save

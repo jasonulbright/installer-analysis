@@ -57,6 +57,19 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
+# Stops the processes that earlier runs of this tool recorded in the ledger on the lab VM (process id and start time), and nothing else.
+# No process is stopped by a command-line pattern: another session may own a process that matches (vault: testing-policy, 'Process rules on a lab VM').
+$stopRecorded = @'
+param($ledger)
+if (Test-Path -LiteralPath $ledger) {
+    foreach ($line in @(Get-Content -LiteralPath $ledger)) {
+        $id, $ticks = $line -split '\|', 2
+        $p = Get-Process -Id ([int]$id) -ErrorAction SilentlyContinue
+        if ($p -and $p.Id -ne $PID -and $p.StartTime.Ticks -eq [long]$ticks) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+    }
+    Remove-Item -LiteralPath $ledger -Force -ErrorAction SilentlyContinue
+}
+'@
 $repo = (Resolve-Path (Join-Path $here '..\..')).Path
 $app = 'installer-analysis'
 $images = Join-Path $repo 'docs\images'
@@ -117,10 +130,10 @@ try {
     }
     foreach ($steps in 'steps-guide.ps1') {
         $dest = $root
-        # A fresh copy for each run. Stop only the leftovers of an earlier capture of this app.
+        # A fresh copy for each run. Stop only the processes that an earlier capture recorded in its ledger, by process id.
         Invoke-Command $session {
             param($d)
-            Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { $_.CommandLine -like "*$d\*" -and $_.ProcessId -ne $PID } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+            & ([scriptblock]::Create($using:stopRecorded)) (Join-Path $d 'ui\run.pids')
             Start-Sleep -Seconds 2
             if (Test-Path $d) { Remove-Item $d -Recurse -Force }
             New-Item -ItemType Directory $d, (Join-Path $d 'ui') -Force | Out-Null
@@ -225,12 +238,12 @@ try {
 finally {
     # Each cleanup runs on its own, so that a failed cleanup cannot replace the original error.
     # Stop a capture that still runs (a timeout leaves it running), then remove the task. Stop the task first, then the
-    # powershell.exe processes of this folder, then unregister, so that nothing keeps writing into the folder or the lock.
+    # processes that this run recorded in its ledger (by process id), then unregister, so that nothing keeps writing into the folder or the lock.
     if ($session) { try {
         Invoke-Command $session {
             param($t, $r)
             Stop-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
-            Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { $_.CommandLine -like "*$r\*" -and $_.ProcessId -ne $PID } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+            & ([scriptblock]::Create($using:stopRecorded)) (Join-Path $r 'ui\run.pids')
             Start-Sleep -Seconds 2
             Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction SilentlyContinue
         } -ArgumentList $taskName, $root
