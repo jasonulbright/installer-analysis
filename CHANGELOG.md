@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [2026.11.18.0030] - 2026-11-18
+
+## 9 changes: 1080p layout, guards, atomic settings save
+
 ### Changed
 
 - Compact layout for a 1080p work area: 36 px sidebar buttons, 26 px buttons, 24 px grid rows.
