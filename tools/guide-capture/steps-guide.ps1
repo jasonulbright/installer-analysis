@@ -48,6 +48,8 @@ Section 'exports' {
 }
 Section 'tab order' { Invoke-El (Get-El $win 'btnViewOverview'); Focus-Win $win; Click-El (Get-El $win 'btnViewOverview'); 1..16 | ForEach-Object { Send-Keys '{TAB}'; $f = [System.Windows.Automation.AutomationElement]::FocusedElement; Log ('tab -> ' + $f.Current.AutomationId + ' / ' + $f.Current.Name) } }
 Section 'light' {
+  # The light images show the MSI sample, as the dark images do. The last analysis above is the uninstaller, which has no MSI properties.
+  Analyze (Join-Path $samples 'sample-package.msi')
   Toggle-El (Get-El $win 'toggleTheme'); Start-Sleep -Seconds 1
   foreach ($v in @(@('Overview', 'light-overview'), @('Msi', 'light-msi'))) { Invoke-El (Get-El $win ('btnView' + $v[0])); Start-Sleep -Seconds 2; Shot $win $v[1] }
   Invoke-El (Get-El $win 'btnOptions'); $d = Find-Last 'Options' 10; Shot $d 'light-options'; Focus-Win $d; Send-Keys '{ESC}'; Start-Sleep -Seconds 1
