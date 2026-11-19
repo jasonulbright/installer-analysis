@@ -9,6 +9,7 @@
 
 ### Fixed
 
+- The light theme images of the guide show the MSI sample, as the dark images do. The MSI Properties image showed an empty table, because the capture analyzed the uninstaller before it switched the theme. The images show the current version.
 - The guide capture tool stops only the processes that it started, by process id. It no longer stops PowerShell processes by command-line pattern, which could end the window of another session. A new guard test fails when a tool script stops a process by a pattern.
 
 ## [2026.11.18.0030] - 2026-11-18
@@ -26,7 +27,7 @@
 
 - Add density, vacant space and guide image tests for the 1080p layout.
 
-### Fixed
+### Fixed
 
 - Draw grid column headers in the case of their text (Title Case), not in capitals. A window test reads the drawn header text of every view in both themes.
 
