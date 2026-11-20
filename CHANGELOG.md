@@ -2,15 +2,19 @@
 
 ## [Unreleased]
 
+## [2026.11.20.0031] - 2026-11-20
+
+## 4 changes: ConfigMgr wording, correct guide images, safer capture tool
+
 ### Changed
 
-- Use ConfigMgr terms and the wording of Microsoft Learn in the guide, the README, the empty-state hint, the Options text, the Overview headings for MSP files and the log messages.
-- Name only Configuration Manager and Microsoft Intune as the packaging targets in the README and in the guide. Detection of NuGet packages stays.
+- Use ConfigMgr terms in the guide, README, hints, Options text and log messages.
+- Name only Configuration Manager and Microsoft Intune as packaging targets.
 
 ### Fixed
 
-- The light theme images of the guide show the MSI sample, as the dark images do. The MSI Properties image showed an empty table, because the capture analyzed the uninstaller before it switched the theme. The images show the current version.
-- The guide capture tool stops only the processes that it started, by process id. It no longer stops PowerShell processes by command-line pattern, which could end the window of another session. A new guard test fails when a tool script stops a process by a pattern.
+- Show the MSI sample in the light theme guide images.
+- Stop only the processes the capture tool started, not other PowerShell windows.
 
 ## [2026.11.18.0030] - 2026-11-18
 
