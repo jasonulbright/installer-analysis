@@ -4,12 +4,13 @@
 
 ## [2026.11.20.0031] - 2026-11-20
 
-## 4 changes: ConfigMgr wording, correct guide images, safer capture tool
+## 5 changes: ConfigMgr wording, tooltips, correct guide images, safer capture tool
 
 ### Changed
 
 - Use ConfigMgr terms in the guide, README, hints, Options text and log messages.
 - Name only Configuration Manager and Microsoft Intune as packaging targets.
+- Add tooltips to buttons and fields.
 
 ### Fixed
 

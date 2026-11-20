@@ -305,7 +305,7 @@
                          FontFamily="Cascadia Code, Consolas, Courier New"
                          Padding="6,4,6,4"
                          Height="26"
-                         Controls:TextBoxHelper.Watermark="C:\path\to\installer.exe or .msi or package  (press Enter to analyze)">
+                         Controls:TextBoxHelper.Watermark="C:\path\to\installer.exe or .msi or package  (press Enter to analyze)" ToolTip="Enter the path of an installer, then press Enter to analyze it.">
                     <TextBox.ContextMenu>
                         <ContextMenu x:Name="ctxPath">
                             <MenuItem Header="Cut"        Command="ApplicationCommands.Cut"/>
@@ -470,7 +470,7 @@
                                  Padding="6,4,6,4"
                                  MinWidth="180"
                                  Height="26"
-                                 Controls:TextBoxHelper.Watermark="Filter names in this folder..."/>
+                                 Controls:TextBoxHelper.Watermark="Filter names in this folder..." ToolTip="Enter text to list only the names in this folder that contain it."/>
                     </DockPanel>
 
                     <TextBlock x:Name="txtFilesFolder"
@@ -496,7 +496,7 @@
                                   Foreground="{DynamicResource MahApps.Brushes.ThemeForeground}"
                                   ItemContainerStyle="{StaticResource ThemedTreeViewItemStyle}"
                                   VirtualizingStackPanel.IsVirtualizing="True"
-                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto" ToolTip="Select a folder to list its files."/>
                         <GridSplitter Grid.Column="1"
                                       Width="5"
                                       HorizontalAlignment="Stretch"
@@ -547,7 +547,7 @@
                                  FontSize="12"
                                  Padding="6,4,6,4"
                                  Height="26"
-                                 Controls:TextBoxHelper.Watermark="Filter by key, name, value or component (case-insensitive)..."/>
+                                 Controls:TextBoxHelper.Watermark="Filter by key, name, value or component (case-insensitive)..." ToolTip="Enter text to list only the registry rows that match a key, name, value or component."/>
                     </DockPanel>
                     <TextBlock x:Name="txtRegistryNote"
                                Grid.Row="1"
@@ -594,7 +594,7 @@
                              Padding="6,4,6,4"
                              Margin="0,0,0,4"
                              Height="26"
-                             Controls:TextBoxHelper.Watermark="Filter strings (case-insensitive)..."/>
+                             Controls:TextBoxHelper.Watermark="Filter strings (case-insensitive)..." ToolTip="Enter text to list only the strings that contain it."/>
                     <DataGrid x:Name="gridStrings"
                               Grid.Row="1"
                               Style="{StaticResource ViewDataGrid}"
