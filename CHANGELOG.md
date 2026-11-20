@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Added tooltips to the file path box, the folder tree and the three filter boxes (files, registry and strings).
 - Use ConfigMgr terms and the wording of Microsoft Learn in the guide, the README, the empty-state hint, the Options text, the Overview headings for MSP files and the log messages.
 - Name only Configuration Manager and Microsoft Intune as the packaging targets in the README and in the guide. Detection of NuGet packages stays.
 
