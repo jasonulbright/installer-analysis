@@ -5043,7 +5043,7 @@ function Get-PayloadContents {
     .SYNOPSIS
         Lists contents of an installer using 7z.exe without extracting.
     .DESCRIPTION
-        Returns array of PSCustomObjects with Name, Size, DateTime properties.
+        Returns array of PSCustomObjects with Name, Size, SizeFormatted, IsDirectory and DateTime (empty when the entry has no time stamp).
         Returns $null if 7z.exe is not found.
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification='Returns the full contents listing from 7z l; plural matches the collection being returned.')]
@@ -5087,11 +5087,12 @@ function Get-PayloadContents {
                 # without a known timestamp -- e.g. the gzip-compressed Inno
                 # Setup wizard stream "[0]~" 7z surfaces for Git/Inno installers.
                 # First try with date+time, fall back to no-date format.
-                $attr = ''; $size = -1L; $name = ''
-                if ($line -match '^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+(\S+)\s+(\d+)\s+\d*\s+(.+)$') {
-                    $attr = $Matches[1]
-                    $size = [long]$Matches[2]
-                    $name = $Matches[3].Trim()
+                $attr = ''; $size = -1L; $name = ''; $stamp = ''
+                if ($line -match '^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(\S+)\s+(\d+)\s+\d*\s+(.+)$') {
+                    $stamp = ($Matches[1] -replace '\s+', ' ')
+                    $attr = $Matches[2]
+                    $size = [long]$Matches[3]
+                    $name = $Matches[4].Trim()
                 } elseif ($line -match '^\s+(\.+|D\.+|[\.A-Z]+)\s+(\d+)\s+\d*\s+(.+)$') {
                     $attr = $Matches[1]
                     $size = [long]$Matches[2]
@@ -5103,6 +5104,7 @@ function Get-PayloadContents {
                         Size = $size
                         SizeFormatted = if ($size -ge 1MB) { "{0:N1} MB" -f ($size / 1MB) } elseif ($size -ge 1KB) { "{0:N0} KB" -f ($size / 1KB) } else { "$size B" }
                         IsDirectory = ($attr -match 'D')
+                        DateTime = $stamp
                     }
                 }
             }
