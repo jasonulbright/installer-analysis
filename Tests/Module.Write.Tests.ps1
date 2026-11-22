@@ -241,6 +241,8 @@ Describe 'Get-PayloadContents' {
         $rows[1].IsDirectory | Should -BeFalse
         $rows[3].Name | Should -Be '[0]~'
         $rows[3].SizeFormatted | Should -Be '100 B'
+        $rows[0].DateTime | Should -Be '2026-01-02 03:04:05' -Because 'the Date and Time columns of 7-Zip show in the DateTime column of the grids'
+        $rows[3].DateTime | Should -Be '' -Because 'an entry without a time stamp has an empty DateTime'
     }
 
     It 'returns an empty list for output without a file table' {

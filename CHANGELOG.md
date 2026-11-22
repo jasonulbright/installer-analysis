@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Show the date and time of each entry in the DateTime column of the payload list and the file browser. The column was empty for every row.
+
 ## [2026.11.20.0031] - 2026-11-20
 
 ## 5 changes: ConfigMgr wording, tooltips, correct guide images, safer capture tool
