@@ -6,6 +6,10 @@ This page lists every folder and file that Installer Analysis writes.
 
 The tool writes in the folder of the script, in a temporary folder for extractions, and in the folder that you choose for an export or an extraction. It writes nothing in the registry. It never changes the installer that you open.
 
+## Sites
+
+Installer Analysis keeps no data per ConfigMgr site. The AppPackager Suite launcher chooses a site and stores each site's data under `%LOCALAPPDATA%\AppPackagerData\sites\<SITE>\tools\<tool>`. This tool writes nothing there. Its preferences and reports are the same for every site.
+
 ## When to use it
 
 Use it to find a log, a report or an extraction, or to clean up.
