@@ -2,9 +2,15 @@
 
 ## [Unreleased]
 
+## [2026.11.22.0032] - 2026-11-22
+
+## 1 column fixed: DateTime shows a value
+
 ### Fixed
 
-- Show the date and time of each entry in the DateTime column of the payload list and the file browser. The column was empty for every row.
+- Show a value in the DateTime column of the payload and file browser grids.
+- Leave stray tooltips out of guide capture images.
+- Name the guide capture lab folder neutrally.
 
 ## [2026.11.20.0031] - 2026-11-20
 
