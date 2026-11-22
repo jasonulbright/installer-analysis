@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2026.11.22.0033] - 2026-11-22
+
+## 1 shared module synchronized: no per-site data
+
+### Changed
+
+- Synchronize the shared SuiteCommon module for the per-site data layout.
+- State that the tool keeps no data per site.
+
 ## [2026.11.22.0032] - 2026-11-22
 
 ## 1 column fixed: DateTime shows a value
